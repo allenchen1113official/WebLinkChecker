@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="WebLinkChecker — 開源網站失效連結檢查工具，自動爬取並回報所有失效連結" />
+  <title>WebLinkChecker — 網站失效連結檢查工具</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --navy: #0f2044;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --gray-100: #f1f5f9;
+      --gray-200: #e2e8f0;
+      --gray-600: #475569;
+      --gray-900: #0f172a;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: var(--gray-900);
+      background: #fff;
+      line-height: 1.7;
+    }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+    /* Header */
+    header { background: var(--navy); color: #fff; padding: 16px 0; }
+    .header-inner { display: flex; align-items: center; justify-content: space-between; }
+    .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
+    .logo svg { opacity: .9; }
+    header nav a { color: rgba(255,255,255,.75); font-size: .875rem; font-weight: 500; }
+    header nav a:hover { color: #fff; text-decoration: none; }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, var(--navy) 0%, #1e3a6e 100%);
+      color: #fff;
+      text-align: center;
+      padding: 72px 24px 60px;
+    }
+    .hero h1 { font-size: 2.6rem; font-weight: 800; letter-spacing: -.5px; margin-bottom: 16px; }
+    .hero p  { font-size: 1.1rem; color: rgba(255,255,255,.75); max-width: 540px; margin: 0 auto 36px; }
+    .btn-hero {
+      display: inline-block;
+      background: var(--primary);
+      color: #fff;
+      padding: 14px 32px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      transition: background .15s;
+    }
+    .btn-hero:hover { background: #1d4ed8; text-decoration: none; }
+    .btn-ghost {
+      display: inline-block;
+      border: 2px solid rgba(255,255,255,.35);
+      color: #fff;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-left: 12px;
+      transition: border-color .15s;
+    }
+    .btn-ghost:hover { border-color: rgba(255,255,255,.7); text-decoration: none; }
+
+    /* Demo screenshot placeholder */
+    .demo-img {
+      margin: -36px auto 0;
+      max-width: 820px;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.3);
+      overflow: hidden;
+    }
+    .demo-placeholder {
+      background: #1e2d4e;
+      padding: 40px 32px;
+      font-family: "Courier New", monospace;
+      font-size: .82rem;
+      color: #7dd3fc;
+      text-align: left;
+      line-height: 1.8;
+    }
+    .demo-placeholder .c-green  { color: #86efac; }
+    .demo-placeholder .c-red    { color: #fca5a5; }
+    .demo-placeholder .c-yellow { color: #fde68a; }
+    .demo-placeholder .c-gray   { color: #94a3b8; }
+
+    /* Features */
+    section { padding: 72px 0; }
+    .section-title { font-size: 1.75rem; font-weight: 800; margin-bottom: 12px; }
+    .section-sub   { color: var(--gray-600); max-width: 480px; margin-bottom: 48px; }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 24px;
+    }
+    .feature-card {
+      background: var(--gray-100);
+      border-radius: 10px;
+      padding: 24px;
+    }
+    .feature-icon { font-size: 1.8rem; margin-bottom: 12px; }
+    .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+    .feature-card p  { font-size: .875rem; color: var(--gray-600); }
+
+    /* Install */
+    .install-section { background: var(--gray-100); }
+    .code-block {
+      background: var(--gray-900);
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 20px 24px;
+      font-family: "Courier New", monospace;
+      font-size: .875rem;
+      overflow-x: auto;
+      margin-bottom: 16px;
+      line-height: 1.8;
+    }
+    .code-block .prompt { color: #64748b; user-select: none; }
+    .code-block .cmd    { color: #7dd3fc; }
+    .code-block .arg    { color: #86efac; }
+    .code-block .flag   { color: #fde68a; }
+
+    /* Output sample */
+    .output-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 600px) { .output-grid { grid-template-columns: 1fr; } }
+    .output-card {
+      border: 1.5px solid var(--gray-200);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .output-card-head {
+      background: var(--gray-100);
+      padding: 12px 16px;
+      font-size: .8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: var(--gray-600);
+    }
+    .output-card-body { padding: 16px; font-size: .82rem; }
+    .pill {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 99px;
+      font-weight: 700;
+      font-size: .75rem;
+    }
+    .pill-red   { background: #fee2e2; color: var(--danger); }
+    .pill-green { background: #dcfce7; color: var(--success); }
+    .pill-blue  { background: #dbeafe; color: var(--primary); }
+
+    /* Footer */
+    footer {
+      background: var(--gray-900);
+      color: rgba(255,255,255,.5);
+      text-align: center;
+      padding: 32px 24px;
+      font-size: .82rem;
+    }
+    footer a { color: rgba(255,255,255,.6); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="container header-inner">
+    <div class="logo">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      </svg>
+      WebLinkChecker
+    </div>
+    <nav>
+      <a href="https://github.com/allenchen1113official/WebLinkChecker" target="_blank" rel="noopener">GitHub &#x2197;</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <h1>WebLinkChecker</h1>
+  <p>開源網站失效連結檢查工具<br>自動爬取全站連結，即時回報失效網址與來源頁面</p>
+  <a href="https://github.com/allenchen1113official/WebLinkChecker" class="btn-hero" target="_blank" rel="noopener">查看原始碼</a>
+  <a href="#install" class="btn-ghost">快速安裝</a>
+</section>
+
+<!-- Terminal demo -->
+<div class="container">
+  <div class="demo-img" style="margin-top: 40px;">
+    <div class="demo-placeholder">
+<span class="c-gray">======================================================================</span>
+<span class="c-gray">                         LINK CHECK REPORT</span>
+<span class="c-gray">======================================================================</span>
+  Total links checked : <span class="c-green">142</span>
+  <span class="c-green">OK                  : 138</span>
+  <span class="c-red">Broken              : 4</span>
+  Scan time           : 2026-04-27 10:30:00
+<span class="c-gray">----------------------------------------------------------------------</span>
+
+<span class="c-red">[1] https://example.com/old-page</span>
+     Status  : <span class="c-yellow">404</span>
+     Found on:
+       - <span class="c-gray">https://example.com/</span>
+       - <span class="c-gray">https://example.com/about</span>
+
+<span class="c-red">[2] https://ext-site.com/missing-resource</span>
+     Status  : <span class="c-yellow">ERROR: Connection error</span>
+     Found on:
+       - <span class="c-gray">https://example.com/contact</span>
+    </div>
+  </div>
+</div>
+
+<!-- Features -->
+<section>
+  <div class="container">
+    <h2 class="section-title">功能特色</h2>
+    <p class="section-sub">無需登入，免費開源，本機執行保護隱私</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F577;&#xFE0F;</div>
+        <h3>全站爬取</h3>
+        <p>從起始網址出發，自動遞迴爬取同網域下所有頁面，發現每一個 <code>&lt;a href&gt;</code> 連結。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F50D;</div>
+        <h3>即時串流結果</h3>
+        <p>透過 Server-Sent Events 即時推送每條連結的檢查結果，無需等候全部完成。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4CD;</div>
+        <h3>標示來源頁面</h3>
+        <p>每個失效連結都會顯示是在哪些頁面被找到的，方便直接定位並修復。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F310;</div>
+        <h3>網頁操作介面</h3>
+        <p>內建 Flask 網頁應用程式，提供視覺化操作介面，支援篩選、匯出 CSV。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x2328;&#xFE0F;</div>
+        <h3>命令列工具</h3>
+        <p>同時提供 CLI 工具，可整合至 CI/CD 流程，發現失效連結時回傳 exit code 1。</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">&#x1F4E4;</div>
+        <h3>CSV / JSON 匯出</h3>
+        <p>支援將完整報告匯出為 CSV 或 JSON 格式，方便後續分析或存檔。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Install -->
+<section class="install-section" id="install">
+  <div class="container">
+    <h2 class="section-title">安裝與使用</h2>
+    <p class="section-sub">需要 Python 3.10+</p>
+
+    <h3 style="margin-bottom:12px;font-size:1rem;">1. 下載並安裝套件</h3>
+    <div class="code-block">
+      <div><span class="prompt"># </span><span class="cmd">git clone</span> <span class="arg">https://github.com/allenchen1113official/WebLinkChecker.git</span></div>
+      <div><span class="prompt">$ </span><span class="cmd">cd</span> <span class="arg">WebLinkChecker</span></div>
+      <div><span class="prompt">$ </span><span class="cmd">pip install</span> <span class="flag">-r</span> <span class="arg">requirements.txt</span></div>
+    </div>
+
+    <h3 style="margin-bottom:12px;margin-top:28px;font-size:1rem;">2a. 啟動網頁界面</h3>
+    <div class="code-block">
+      <div><span class="prompt">$ </span><span class="cmd">python</span> <span class="arg">app.py</span></div>
+      <div><span style="color:#64748b"># 開啟瀏覽器前往 http://localhost:5000</span></div>
+    </div>
+
+    <h3 style="margin-bottom:12px;margin-top:28px;font-size:1rem;">2b. 使用命令列工具</h3>
+    <div class="code-block">
+      <div><span class="prompt">$ </span><span class="cmd">python</span> <span class="arg">link_checker.py</span> <span class="arg">https://example.com</span></div>
+      <div><span class="prompt">$ </span><span class="cmd">python</span> <span class="arg">link_checker.py</span> <span class="arg">https://example.com</span> <span class="flag">--output</span> <span class="arg">report.csv</span></div>
+      <div><span class="prompt">$ </span><span class="cmd">python</span> <span class="arg">link_checker.py</span> <span class="arg">https://example.com</span> <span class="flag">--max-pages</span> <span class="arg">50</span> <span class="flag">--verbose</span></div>
+    </div>
+
+    <h3 style="margin-bottom:12px;margin-top:28px;font-size:1rem;">常用選項</h3>
+    <div class="output-grid">
+      <div class="output-card">
+        <div class="output-card-head">CLI 選項</div>
+        <div class="output-card-body">
+          <table style="width:100%;border-collapse:collapse;font-size:.8rem;">
+            <tr><td style="padding:4px 8px 4px 0;white-space:nowrap"><code>--timeout SEC</code></td><td style="color:var(--gray-600)">請求逾時秒數（預設 15）</td></tr>
+            <tr><td style="padding:4px 8px 4px 0;white-space:nowrap"><code>--delay SEC</code></td><td style="color:var(--gray-600)">請求間隔秒數（預設 0）</td></tr>
+            <tr><td style="padding:4px 8px 4px 0;white-space:nowrap"><code>--max-pages N</code></td><td style="color:var(--gray-600)">最大爬取頁數（0=不限）</td></tr>
+            <tr><td style="padding:4px 8px 4px 0;white-space:nowrap"><code>--output FILE</code></td><td style="color:var(--gray-600)">儲存報告（.csv 或 .json）</td></tr>
+            <tr><td style="padding:4px 8px 4px 0;white-space:nowrap"><code>--broken-only</code></td><td style="color:var(--gray-600)">匯出時只含失效連結</td></tr>
+            <tr><td style="padding:4px 8px 4px 0;white-space:nowrap"><code>--verbose / -v</code></td><td style="color:var(--gray-600)">顯示每個 URL 的檢查過程</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="output-card">
+        <div class="output-card-head">Exit Code</div>
+        <div class="output-card-body">
+          <div style="display:flex;flex-direction:column;gap:10px;font-size:.85rem;">
+            <div><span class="pill pill-green">0</span> &nbsp;無失效連結</div>
+            <div><span class="pill pill-red">1</span> &nbsp;發現一個或多個失效連結</div>
+            <div style="margin-top:8px;color:var(--gray-600);font-size:.8rem;">可整合至 CI/CD，在有失效連結時讓 pipeline 失敗。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div>WebLinkChecker &copy; 2026 &mdash; 以 MIT License 開源</div>
+  <div style="margin-top:8px;">
+    <a href="https://github.com/allenchen1113official/WebLinkChecker" target="_blank" rel="noopener">GitHub</a>
+    &nbsp;&#xB7;&nbsp;
+    <a href="https://github.com/allenchen1113official/WebLinkChecker/issues" target="_blank" rel="noopener">回報問題</a>
+  </div>
+</footer>
+
+</body>
+</html>
