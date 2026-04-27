@@ -9,10 +9,10 @@ import time
 import argparse
 import csv
 import json
-from collections import defaultdict
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import Callable, Optional
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -62,7 +62,6 @@ def is_same_domain(url: str, base: str) -> bool:
 
 def normalize_url(url: str) -> str:
     parsed = urlparse(url)
-    # Strip fragment, keep everything else
     return parsed._replace(fragment="").geturl()
 
 
@@ -78,10 +77,11 @@ def extract_links(html: str, page_url: str) -> list[str]:
     return links
 
 
-def check_url(session: requests.Session, url: str, timeout: int) -> tuple[Optional[int], Optional[str]]:
+def check_url(
+    session: requests.Session, url: str, timeout: int
+) -> tuple[Optional[int], Optional[str]]:
     try:
         resp = session.head(url, timeout=timeout, allow_redirects=True)
-        # Some servers don't support HEAD; fall back to GET
         if resp.status_code in (405, 501):
             resp = session.get(url, timeout=timeout, allow_redirects=True, stream=True)
             resp.close()
@@ -105,80 +105,94 @@ def crawl(
     delay: float,
     max_pages: int,
     verbose: bool,
+    on_result: Optional[Callable[[LinkResult], None]] = None,
+    on_status: Optional[Callable[[str], None]] = None,
+    stop_event: Optional[threading.Event] = None,
 ) -> dict[str, LinkResult]:
     base = get_base_domain(start_url)
-    to_crawl: list[str] = [normalize_url(start_url)]
+    pages_to_crawl: list[str] = [normalize_url(start_url)]
     crawled: set[str] = set()
-    checked: dict[str, LinkResult] = {}  # url -> LinkResult
+    results: dict[str, LinkResult] = {}
     pages_crawled = 0
 
-    print(f"\n{Fore.CYAN}Starting crawl: {start_url}{Style.RESET_ALL}")
-    print(f"{Fore.CYAN}Base domain   : {base}{Style.RESET_ALL}\n")
+    def _status(msg: str) -> None:
+        if on_status:
+            on_status(msg)
+        if verbose:
+            print(f"  {Fore.BLUE}{msg}{Style.RESET_ALL}")
 
-    while to_crawl:
-        url = to_crawl.pop(0)
-        if url in crawled:
+    def _ensure(url: str) -> LinkResult:
+        if url not in results:
+            results[url] = LinkResult(url=url, status_code=None, error=None)
+        return results[url]
+
+    _status(f"Starting crawl: {start_url}")
+    if verbose:
+        print(f"\n{Fore.CYAN}Base domain: {base}{Style.RESET_ALL}\n")
+
+    # Phase 1: crawl same-domain pages with GET
+    while pages_to_crawl:
+        if stop_event and stop_event.is_set():
+            break
+
+        page_url = pages_to_crawl.pop(0)
+        if page_url in crawled:
             continue
-        crawled.add(url)
+        crawled.add(page_url)
 
         if max_pages and pages_crawled >= max_pages:
             break
 
-        # Fetch the page
-        if verbose:
-            print(f"  {Fore.BLUE}[CRAWL]{Style.RESET_ALL} {url}")
+        _status(f"Crawling: {page_url}")
+
         try:
-            resp = session.get(url, timeout=timeout, allow_redirects=True)
+            resp = session.get(page_url, timeout=timeout, allow_redirects=True)
             status = resp.status_code
             content_type = resp.headers.get("Content-Type", "")
         except requests.exceptions.RequestException as e:
-            if url not in checked:
-                checked[url] = LinkResult(url=url, status_code=None, error=str(e))
+            r = _ensure(page_url)
+            r.status_code = None
+            r.error = str(e)
+            if on_result:
+                on_result(r)
             continue
 
-        if url not in checked:
-            checked[url] = LinkResult(url=url, status_code=status, error=None)
+        r = _ensure(page_url)
+        r.status_code = status
+        r.error = None
+        if on_result:
+            on_result(r)
 
-        # Only parse HTML pages for further links
         if status < 400 and "text/html" in content_type:
             pages_crawled += 1
-            links = extract_links(resp.text, url)
+            links = extract_links(resp.text, page_url)
             for link in links:
-                if link not in checked:
-                    # Record where this link was found
-                    if link not in [r.url for r in checked.values()]:
-                        if link not in to_crawl:
-                            to_crawl.append(link)
-
-                # Track found_on even if already queued/checked
-                if link not in checked:
-                    checked[link] = LinkResult(url=link, status_code=None, error=None)
-                if url not in checked[link].found_on:
-                    checked[link].found_on.append(url)
-
-            # Only enqueue same-domain pages for crawling
-            for link in links:
-                clean = normalize_url(link)
-                if is_same_domain(clean, base) and clean not in crawled and clean not in to_crawl:
-                    to_crawl.append(clean)
+                lr = _ensure(link)
+                if page_url not in lr.found_on:
+                    lr.found_on.append(page_url)
+                if is_same_domain(link, base) and link not in crawled and link not in pages_to_crawl:
+                    pages_to_crawl.append(link)
 
         if delay:
             time.sleep(delay)
 
-    # Check all discovered external (and unchecked) links
-    unchecked = [r for r in checked.values() if r.status_code is None and r.error is None]
+    # Phase 2: check all unchecked links (external + unreached internal)
+    unchecked = [r for r in results.values() if r.status_code is None and r.error is None]
     if unchecked:
-        print(f"\n{Fore.CYAN}Checking {len(unchecked)} remaining links...{Style.RESET_ALL}")
+        _status(f"Checking {len(unchecked)} remaining links...")
         for result in unchecked:
-            if verbose:
-                print(f"  {Fore.BLUE}[CHECK]{Style.RESET_ALL} {result.url}")
+            if stop_event and stop_event.is_set():
+                break
+            _status(f"Checking: {result.url}")
             code, err = check_url(session, result.url, timeout)
             result.status_code = code
             result.error = err
+            if on_result:
+                on_result(result)
             if delay:
                 time.sleep(delay)
 
-    return checked
+    return results
 
 
 def print_report(results: dict[str, LinkResult], show_ok: bool) -> None:
@@ -290,7 +304,6 @@ Examples:
 
     args = parser.parse_args()
 
-    # Basic URL validation
     parsed = urlparse(args.url)
     if not parsed.scheme or not parsed.netloc:
         print(f"{Fore.RED}Error: '{args.url}' does not look like a valid URL.{Style.RESET_ALL}")

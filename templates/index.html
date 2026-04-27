@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebLinkChecker — 網站失效連結檢查工具</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header class="header">
+  <div class="container header-inner">
+    <div class="logo">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+      </svg>
+      <span>WebLinkChecker</span>
+    </div>
+    <nav class="nav-links">
+      <a href="https://github.com/allenchen1113official/WebLinkChecker" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===== HERO / FORM ===== -->
+<section class="hero">
+  <div class="container">
+    <h1 class="hero-title">網站失效連結檢查工具</h1>
+    <p class="hero-sub">輸入網站網址，自動爬取並檢查所有連結是否正常</p>
+
+    <div class="card form-card">
+      <form id="check-form" autocomplete="off">
+        <div class="url-row">
+          <input
+            id="url-input"
+            type="url"
+            class="url-input"
+            placeholder="https://example.com"
+            required
+            autofocus
+          />
+          <button type="submit" id="submit-btn" class="btn btn-primary">
+            <span id="btn-label">開始檢查</span>
+            <span id="btn-spinner" class="spinner" hidden></span>
+          </button>
+        </div>
+
+        <details class="options-details">
+          <summary class="options-toggle">進階選項</summary>
+          <div class="options-grid">
+            <label class="option-item">
+              <span class="option-label">逾時秒數</span>
+              <input type="number" id="opt-timeout" class="option-input" value="15" min="1" max="120" />
+              <span class="option-unit">秒</span>
+            </label>
+            <label class="option-item">
+              <span class="option-label">請求間隔</span>
+              <input type="number" id="opt-delay" class="option-input" value="0" min="0" max="10" step="0.1" />
+              <span class="option-unit">秒</span>
+            </label>
+            <label class="option-item">
+              <span class="option-label">最大頁數</span>
+              <input type="number" id="opt-maxpages" class="option-input" value="0" min="0" />
+              <span class="option-unit">頁 (0=不限)</span>
+            </label>
+          </div>
+        </details>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PROGRESS ===== -->
+<section id="progress-section" class="container" hidden>
+  <div class="card progress-card">
+    <div class="progress-header">
+      <div class="progress-dot"></div>
+      <span id="progress-title" class="progress-title">正在檢查中…</span>
+      <button id="stop-btn" class="btn btn-danger btn-sm">停止</button>
+    </div>
+    <p id="status-text" class="status-text">初始化中…</p>
+    <div class="stats-row">
+      <div class="stat-chip">已爬取頁面 <strong id="stat-pages">0</strong></div>
+      <div class="stat-chip">已檢查連結 <strong id="stat-total">0</strong></div>
+      <div class="stat-chip stat-chip--danger">失效連結 <strong id="stat-broken">0</strong></div>
+      <div class="stat-chip stat-chip--success">正常連結 <strong id="stat-ok">0</strong></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== RESULTS ===== -->
+<section id="results-section" class="container" hidden>
+  <div class="card results-card">
+    <div class="results-header">
+      <div class="filter-tabs" id="filter-tabs">
+        <button class="filter-tab active" data-filter="all">全部 <span class="tab-count" id="count-all">0</span></button>
+        <button class="filter-tab filter-tab--danger" data-filter="broken">失效 <span class="tab-count" id="count-broken">0</span></button>
+        <button class="filter-tab filter-tab--success" data-filter="ok">正常 <span class="tab-count" id="count-ok">0</span></button>
+      </div>
+      <div class="results-actions">
+        <button id="export-btn" class="btn btn-outline btn-sm">下載 CSV</button>
+      </div>
+    </div>
+
+    <div class="table-wrapper">
+      <table class="results-table" id="results-table">
+        <thead>
+          <tr>
+            <th class="col-status">狀態</th>
+            <th class="col-url">連結網址</th>
+            <th class="col-found">發現於</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+      <p id="empty-msg" class="empty-msg" hidden>沒有符合篩選條件的結果。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SUMMARY TOAST ===== -->
+<div id="summary-banner" class="summary-banner" hidden>
+  <div class="container summary-inner">
+    <span id="summary-text"></span>
+  </div>
+</div>
+
+<footer class="footer">
+  <div class="container">
+    <span>WebLinkChecker &copy; 2026 &mdash; 開源於 <a href="https://github.com/allenchen1113official/WebLinkChecker" target="_blank" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
