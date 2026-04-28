@@ -3,133 +3,239 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WebLinkChecker — 網站失效連結檢查工具</title>
+  <meta name="description" content="WebLinkChecker — 免費網站失效連結檢查工具，輸入網址即可找出所有失效連結" />
+  <title>WebLinkChecker — 免費網站失效連結檢查工具</title>
   <link rel="stylesheet" href="/static/style.css" />
+  <!-- jsPDF for PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 
-<!-- ===== HEADER ===== -->
-<header class="header">
-  <div class="container header-inner">
-    <div class="logo">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<!-- ════════════════ HEADER ════════════════ -->
+<header class="site-header">
+  <div class="container hdr-inner">
+    <a href="/" class="site-logo">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
       </svg>
       <span>WebLinkChecker</span>
-    </div>
-    <nav class="nav-links">
-      <a href="https://github.com/allenchen1113official/WebLinkChecker" target="_blank" rel="noopener">GitHub</a>
+    </a>
+    <nav class="hdr-nav">
+      <a href="https://github.com/allenchen1113official/WebLinkChecker" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577
+            0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.385-1.335-1.755
+            -1.335-1.755-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236
+            1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332
+            -5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0
+            1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405
+            2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84
+            1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81
+            2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 21.795
+            24 17.295 24 12c0-6.63-5.37-12-12-12"/>
+        </svg>
+        GitHub
+      </a>
     </nav>
   </div>
 </header>
 
-<!-- ===== HERO / FORM ===== -->
-<section class="hero">
+<!-- ════════════════ HERO / FORM ════════════════ -->
+<div class="hero-band">
   <div class="container">
-    <h1 class="hero-title">網站失效連結檢查工具</h1>
-    <p class="hero-sub">輸入網站網址，自動爬取並檢查所有連結是否正常</p>
+    <h1 class="hero-h1">免費網站失效連結檢查工具</h1>
+    <p class="hero-sub">輸入網址，自動爬取並驗證每一個連結，找出 404、連線失敗等失效連結</p>
 
-    <div class="card form-card">
-      <form id="check-form" autocomplete="off">
-        <div class="url-row">
-          <input
-            id="url-input"
-            type="url"
-            class="url-input"
-            placeholder="https://example.com"
-            required
-            autofocus
-          />
-          <button type="submit" id="submit-btn" class="btn btn-primary">
+    <div class="form-card">
+      <form id="check-form" autocomplete="off" novalidate>
+
+        <!-- URL row -->
+        <div class="input-group">
+          <label for="url-input" class="sr-only">網站網址</label>
+          <div class="input-wrap">
+            <svg class="input-icon" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input id="url-input" type="url" class="url-field"
+                   placeholder="https://your-website.com"
+                   spellcheck="false" autofocus required />
+          </div>
+          <button type="submit" id="submit-btn" class="btn-check">
             <span id="btn-label">開始檢查</span>
             <span id="btn-spinner" class="spinner" hidden></span>
           </button>
         </div>
 
-        <details class="options-details">
-          <summary class="options-toggle">進階選項</summary>
-          <div class="options-grid">
-            <label class="option-item">
-              <span class="option-label">逾時秒數</span>
-              <input type="number" id="opt-timeout" class="option-input" value="15" min="1" max="120" />
-              <span class="option-unit">秒</span>
-            </label>
-            <label class="option-item">
-              <span class="option-label">請求間隔</span>
-              <input type="number" id="opt-delay" class="option-input" value="0" min="0" max="10" step="0.1" />
-              <span class="option-unit">秒</span>
-            </label>
-            <label class="option-item">
-              <span class="option-label">最大頁數</span>
-              <input type="number" id="opt-maxpages" class="option-input" value="0" min="0" />
-              <span class="option-unit">頁 (0=不限)</span>
-            </label>
+        <!-- Options -->
+        <details class="opts-details" id="opts-details">
+          <summary class="opts-toggle">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+            進階選項
+          </summary>
+          <div class="opts-body">
+            <div class="opt-row">
+              <div class="opt-field">
+                <label for="opt-timeout">請求逾時</label>
+                <div class="opt-input-wrap">
+                  <input id="opt-timeout" type="number" value="15" min="1" max="120" />
+                  <span class="opt-unit">秒</span>
+                </div>
+              </div>
+              <div class="opt-field">
+                <label for="opt-delay">請求間隔</label>
+                <div class="opt-input-wrap">
+                  <input id="opt-delay" type="number" value="0" min="0" max="10" step="0.1" />
+                  <span class="opt-unit">秒</span>
+                </div>
+              </div>
+              <div class="opt-field">
+                <label for="opt-maxpages">最大頁數</label>
+                <div class="opt-input-wrap">
+                  <input id="opt-maxpages" type="number" value="0" min="0" />
+                  <span class="opt-unit">頁&nbsp;(0=不限)</span>
+                </div>
+              </div>
+            </div>
           </div>
         </details>
       </form>
-    </div>
+    </div><!-- /form-card -->
   </div>
-</section>
+</div><!-- /hero-band -->
 
-<!-- ===== PROGRESS ===== -->
-<section id="progress-section" class="container" hidden>
-  <div class="card progress-card">
-    <div class="progress-header">
-      <div class="progress-dot"></div>
-      <span id="progress-title" class="progress-title">正在檢查中…</span>
-      <button id="stop-btn" class="btn btn-danger btn-sm">停止</button>
+<!-- ════════════════ PROGRESS ════════════════ -->
+<div class="container" id="progress-wrap" hidden>
+  <div class="progress-card">
+    <div class="prog-top">
+      <span class="pulse-dot"></span>
+      <span id="prog-title" class="prog-title">正在檢查中…</span>
+      <button id="stop-btn" class="btn-stop">■ 停止</button>
     </div>
-    <p id="status-text" class="status-text">初始化中…</p>
-    <div class="stats-row">
-      <div class="stat-chip">已爬取頁面 <strong id="stat-pages">0</strong></div>
-      <div class="stat-chip">已檢查連結 <strong id="stat-total">0</strong></div>
-      <div class="stat-chip stat-chip--danger">失效連結 <strong id="stat-broken">0</strong></div>
-      <div class="stat-chip stat-chip--success">正常連結 <strong id="stat-ok">0</strong></div>
-    </div>
-  </div>
-</section>
-
-<!-- ===== RESULTS ===== -->
-<section id="results-section" class="container" hidden>
-  <div class="card results-card">
-    <div class="results-header">
-      <div class="filter-tabs" id="filter-tabs">
-        <button class="filter-tab active" data-filter="all">全部 <span class="tab-count" id="count-all">0</span></button>
-        <button class="filter-tab filter-tab--danger" data-filter="broken">失效 <span class="tab-count" id="count-broken">0</span></button>
-        <button class="filter-tab filter-tab--success" data-filter="ok">正常 <span class="tab-count" id="count-ok">0</span></button>
+    <p id="status-text" class="prog-status">初始化中…</p>
+    <div class="prog-stats">
+      <div class="pstat">
+        <strong id="stat-pages">0</strong>
+        <small>頁面</small>
       </div>
-      <div class="results-actions">
-        <button id="export-btn" class="btn btn-outline btn-sm">下載 CSV</button>
+      <div class="pstat-sep"></div>
+      <div class="pstat">
+        <strong id="stat-total">0</strong>
+        <small>連結</small>
+      </div>
+      <div class="pstat-sep"></div>
+      <div class="pstat pstat--danger">
+        <strong id="stat-broken">0</strong>
+        <small>失效</small>
+      </div>
+      <div class="pstat-sep"></div>
+      <div class="pstat pstat--ok">
+        <strong id="stat-ok">0</strong>
+        <small>正常</small>
       </div>
     </div>
-
-    <div class="table-wrapper">
-      <table class="results-table" id="results-table">
-        <thead>
-          <tr>
-            <th class="col-status">狀態</th>
-            <th class="col-url">連結網址</th>
-            <th class="col-found">發現於</th>
-          </tr>
-        </thead>
-        <tbody id="results-body"></tbody>
-      </table>
-      <p id="empty-msg" class="empty-msg" hidden>沒有符合篩選條件的結果。</p>
-    </div>
-  </div>
-</section>
-
-<!-- ===== SUMMARY TOAST ===== -->
-<div id="summary-banner" class="summary-banner" hidden>
-  <div class="container summary-inner">
-    <span id="summary-text"></span>
   </div>
 </div>
 
-<footer class="footer">
+<!-- ════════════════ RESULTS ════════════════ -->
+<div class="container" id="results-wrap" hidden>
+
+  <!-- Summary bar -->
+  <div id="summary-bar" class="summary-bar">
+    <div class="sum-group">
+      <span class="sum-num" id="sum-total">0</span>
+      <span class="sum-lbl">總連結</span>
+    </div>
+    <div class="sum-divider"></div>
+    <div class="sum-group">
+      <span class="sum-num sum-num--danger" id="sum-broken">0</span>
+      <span class="sum-lbl">失效連結</span>
+    </div>
+    <div class="sum-divider"></div>
+    <div class="sum-group">
+      <span class="sum-num sum-num--ok" id="sum-ok">0</span>
+      <span class="sum-lbl">正常連結</span>
+    </div>
+    <div class="sum-divider"></div>
+    <div class="sum-group">
+      <span class="sum-num" id="sum-pages">0</span>
+      <span class="sum-lbl">已爬頁面</span>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="results-toolbar">
+    <div class="filter-group" id="filter-tabs" role="tablist">
+      <button class="ftab ftab--all active" data-filter="broken" role="tab">
+        <span class="ftab-dot ftab-dot--danger"></span>
+        僅失效
+        <span class="ftab-badge" id="cnt-broken">0</span>
+      </button>
+      <button class="ftab" data-filter="all" role="tab">
+        全部連結
+        <span class="ftab-badge" id="cnt-all">0</span>
+      </button>
+      <button class="ftab" data-filter="ok" role="tab">
+        <span class="ftab-dot ftab-dot--ok"></span>
+        正常
+        <span class="ftab-badge" id="cnt-ok">0</span>
+      </button>
+    </div>
+    <div class="export-group">
+      <button id="export-pdf-btn" class="btn-export btn-export--pdf" title="下載 PDF 報告">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="12" y1="18" x2="12" y2="12"/>
+          <polyline points="9 15 12 18 15 15"/>
+        </svg>
+        下載 PDF
+      </button>
+      <button id="export-html-btn" class="btn-export btn-export--html" title="下載網頁報告">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6"/>
+          <polyline points="8 6 2 12 8 18"/>
+        </svg>
+        下載網頁
+      </button>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="tbl-card">
+    <div class="tbl-scroll">
+      <table class="res-table" id="res-table">
+        <thead>
+          <tr>
+            <th class="col-no">#</th>
+            <th class="col-status">狀態碼</th>
+            <th class="col-url">失效 / 連結網址</th>
+            <th class="col-found">發現於（來源頁面）</th>
+          </tr>
+        </thead>
+        <tbody id="res-body"></tbody>
+      </table>
+    </div>
+    <p id="empty-note" class="empty-note" hidden>目前篩選條件下沒有結果。</p>
+    <div id="tbl-footer" class="tbl-footer" hidden>
+      <span id="visible-count"></span>
+    </div>
+  </div>
+
+</div><!-- /results-wrap -->
+
+<!-- ════════════════ FOOTER ════════════════ -->
+<footer class="site-footer">
   <div class="container">
-    <span>WebLinkChecker &copy; 2026 &mdash; 開源於 <a href="https://github.com/allenchen1113official/WebLinkChecker" target="_blank" rel="noopener">GitHub</a></span>
+    <p>WebLinkChecker &copy; 2026 &mdash; 開源免費工具 &middot;
+       <a href="https://github.com/allenchen1113official/WebLinkChecker" target="_blank" rel="noopener">GitHub</a>
+    </p>
   </div>
 </footer>
 
