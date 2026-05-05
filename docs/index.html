@@ -470,7 +470,7 @@ class CheckerCore {
     this.onProxyChange = opts.onProxyChange || (() => {});
 
     this.proxy        = new ProxyManager(opts.customProxy || "");
-    this.queue        = [this.startUrl];
+    this.queue        = new Set([this.startUrl]);
     this.visited      = new Set();
     this.results      = new Map();
     this.pagesCrawled = 0;
@@ -592,8 +592,8 @@ class CheckerCore {
         for (const link of links) {
           const lr = this._ensure(link);
           if (!lr.foundOn.includes(pageUrl)) lr.foundOn.push(pageUrl);
-          if (this._sameDomain(link) && !this.visited.has(link) && !this.queue.includes(link))
-            this.queue.push(link);
+          if (this._sameDomain(link) && !this.visited.has(link))
+            this.queue.add(link);
         }
       }
     }
@@ -615,14 +615,50 @@ class CheckerCore {
     return out;
   }
 
+  /* Fetch sitemap.xml (via robots.txt Sitemap: directive if present) and seed queue */
+  async _loadSitemap() {
+    let sitemapUrl = this.baseOrigin + "/sitemap.xml";
+    /* Try robots.txt for a Sitemap: directive */
+    try {
+      const { resp, opaque } = await this._proxyFetch(this.baseOrigin + "/robots.txt", "GET");
+      if (!opaque && resp.ok) {
+        const txt   = await resp.text();
+        const match = txt.match(/^Sitemap:\s*(.+)$/im);
+        if (match) sitemapUrl = match[1].trim();
+      }
+    } catch { /* robots.txt missing or unreadable — fall through */ }
+
+    this.onStatus("載入 sitemap: " + sitemapUrl);
+    try {
+      const { resp, opaque } = await this._proxyFetch(sitemapUrl, "GET");
+      if (opaque || !resp.ok) return;
+      const xml = await resp.text();
+      const doc = new DOMParser().parseFromString(xml, "application/xml");
+      let count = 0;
+      for (const loc of doc.querySelectorAll("loc")) {
+        const u = this._norm(loc.textContent.trim());
+        if (this._sameDomain(u) && !this.visited.has(u)) {
+          this.queue.add(u);
+          this._ensure(u);
+          count++;
+        }
+      }
+      if (count) this.onStatus(`sitemap: 新增 ${count} 個頁面至佇列`);
+    } catch { /* no sitemap or invalid XML */ }
+  }
+
   async run() {
     this.onStatus("開始檢查: " + this.startUrl);
     this.onProxyChange(this.proxy.name);
     this._ensure(this.startUrl);
 
+    /* Seed queue from sitemap.xml so orphan pages are also discovered */
+    await this._loadSitemap();
+
     /* Phase 1: crawl same-domain pages */
-    while (this.queue.length > 0 && !this.stopped) {
-      const page = this.queue.shift();
+    while (this.queue.size > 0 && !this.stopped) {
+      const page = this.queue.values().next().value;
+      this.queue.delete(page);
       if (this.visited.has(page)) continue;
       this.visited.add(page);
       if (this.maxPages > 0 && this.pagesCrawled >= this.maxPages) break;
