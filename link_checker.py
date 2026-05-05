@@ -10,6 +10,7 @@ import argparse
 import csv
 import json
 import threading
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable, Optional
@@ -77,6 +78,62 @@ def extract_links(html: str, page_url: str) -> list[str]:
     return links
 
 
+def _parse_sitemap_urls(
+    session: requests.Session,
+    sitemap_url: str,
+    base_origin: str,
+    timeout: int,
+    depth: int = 0,
+) -> list[str]:
+    """Recursively parse a sitemap (or sitemap index) and return same-domain URLs."""
+    if depth > 3:
+        return []
+    urls: list[str] = []
+    try:
+        resp = session.get(sitemap_url, timeout=timeout, allow_redirects=True)
+        if resp.status_code != 200:
+            return urls
+        root = ET.fromstring(resp.content)
+        ns = (root.tag.split("}")[0].lstrip("{") + "}") if "}" in root.tag else ""
+        tag_local = root.tag.replace(ns, "") if ns else root.tag
+        if tag_local == "sitemapindex":
+            for loc in root.findall(f"{ns}sitemap/{ns}loc"):
+                if loc.text:
+                    urls.extend(_parse_sitemap_urls(
+                        session, loc.text.strip(), base_origin, timeout, depth + 1
+                    ))
+        else:
+            for loc in root.findall(f"{ns}url/{ns}loc"):
+                if loc.text:
+                    u = normalize_url(loc.text.strip())
+                    if u.startswith(base_origin):
+                        urls.append(u)
+    except Exception:
+        pass
+    return urls
+
+
+def _load_sitemap(
+    session: requests.Session,
+    start_url: str,
+    timeout: int,
+) -> list[str]:
+    """Discover all pages via sitemap.xml (robots.txt Sitemap: directive as fallback)."""
+    parsed = urlparse(start_url)
+    base_origin = f"{parsed.scheme}://{parsed.netloc}"
+    sitemap_url = base_origin + "/sitemap.xml"
+    try:
+        resp = session.get(base_origin + "/robots.txt", timeout=timeout, allow_redirects=True)
+        if resp.status_code == 200:
+            for line in resp.text.splitlines():
+                if line.lower().startswith("sitemap:"):
+                    sitemap_url = line.split(":", 1)[1].strip()
+                    break
+    except Exception:
+        pass
+    return _parse_sitemap_urls(session, sitemap_url, base_origin, timeout)
+
+
 def check_url(
     session: requests.Session, url: str, timeout: int
 ) -> tuple[Optional[int], Optional[str]]:
@@ -111,6 +168,7 @@ def crawl(
 ) -> dict[str, LinkResult]:
     base = get_base_domain(start_url)
     pages_to_crawl: list[str] = [normalize_url(start_url)]
+    queued: set[str] = {normalize_url(start_url)}   # O(1) membership check
     crawled: set[str] = set()
     results: dict[str, LinkResult] = {}
     pages_crawled = 0
@@ -129,6 +187,16 @@ def crawl(
     _status(f"Starting crawl: {start_url}")
     if verbose:
         print(f"\n{Fore.CYAN}Base domain: {base}{Style.RESET_ALL}\n")
+
+    # Seed queue from sitemap.xml so orphan pages are also discovered
+    _status("Loading sitemap...")
+    for u in _load_sitemap(session, start_url, timeout):
+        if u not in crawled and u not in queued:
+            pages_to_crawl.append(u)
+            queued.add(u)
+            results[u] = LinkResult(url=u, status_code=None, error=None)
+    if verbose and len(queued) > 1:
+        print(f"{Fore.CYAN}Sitemap: {len(queued) - 1} additional pages queued{Style.RESET_ALL}")
 
     # Phase 1: crawl same-domain pages with GET
     while pages_to_crawl:
@@ -170,8 +238,9 @@ def crawl(
                 lr = _ensure(link)
                 if page_url not in lr.found_on:
                     lr.found_on.append(page_url)
-                if is_same_domain(link, base) and link not in crawled and link not in pages_to_crawl:
+                if is_same_domain(link, base) and link not in crawled and link not in queued:
                     pages_to_crawl.append(link)
+                    queued.add(link)
 
         if delay:
             time.sleep(delay)

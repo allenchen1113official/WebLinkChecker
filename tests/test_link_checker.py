@@ -241,8 +241,9 @@ class TestCrawl:
             max_pages=1,
             verbose=False,
         )
-        # Only 1 page should be GET-crawled (start URL)
-        assert session.get.call_count == 1
+        # Calls: robots.txt + sitemap.xml (sitemap seed) + start page = 3
+        # max_pages=1 prevents p1/p2/p3 from being crawled as HTML pages
+        assert session.get.call_count == 3
 
     def test_crawl_marks_broken_link(self):
         # External link → checked via HEAD (not crawled with GET)
