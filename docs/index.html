@@ -1,326 +1,801 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="WebLinkChecker — 開源網站失效連結檢查工具，自動爬取並回報所有失效連結" />
-  <title>WebLinkChecker — 網站失效連結檢查工具</title>
-  <style>
-    :root {
-      --primary: #2563eb;
-      --navy: #0f2044;
-      --danger: #dc2626;
-      --success: #16a34a;
-      --gray-100: #f1f5f9;
-      --gray-200: #e2e8f0;
-      --gray-600: #475569;
-      --gray-900: #0f172a;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      color: var(--gray-900);
-      background: #fff;
-      line-height: 1.7;
-    }
-    a { color: var(--primary); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="WebLinkChecker — 免費網站失效連結檢查工具，輸入網址即可找出所有失效連結" />
+<title>WebLinkChecker — 免費網站失效連結檢查工具</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+:root {
+  --blue:#1558d6; --navy:#0d1e3d; --red:#c0392b; --green:#1a7a40;
+  --bg:#f4f6fb; --card:#fff; --border:#dde3ef; --text:#1a1f2e;
+  --muted:#64748b; --radius:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+.container{max-width:900px;margin:0 auto;padding:0 20px}
 
-    /* Header */
-    header { background: var(--navy); color: #fff; padding: 16px 0; }
-    .header-inner { display: flex; align-items: center; justify-content: space-between; }
-    .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.1rem; }
-    .logo svg { opacity: .9; }
-    header nav a { color: rgba(255,255,255,.75); font-size: .875rem; font-weight: 500; }
-    header nav a:hover { color: #fff; text-decoration: none; }
+/* ── Header ── */
+.site-header{background:var(--navy);padding:14px 0}
+.hdr-inner{display:flex;align-items:center;justify-content:space-between}
+.site-logo{display:flex;align-items:center;gap:9px;color:#fff;font-weight:700;font-size:1.05rem;text-decoration:none}
+.site-logo svg{color:rgba(255,255,255,.85)}
+.hdr-nav a{color:rgba(255,255,255,.7);font-size:.85rem;font-weight:500;display:flex;align-items:center;gap:5px}
+.hdr-nav a:hover{color:#fff;text-decoration:none}
 
-    /* Hero */
-    .hero {
-      background: linear-gradient(135deg, var(--navy) 0%, #1e3a6e 100%);
-      color: #fff;
-      text-align: center;
-      padding: 72px 24px 60px;
-    }
-    .hero h1 { font-size: 2.6rem; font-weight: 800; letter-spacing: -.5px; margin-bottom: 16px; }
-    .hero p  { font-size: 1.1rem; color: rgba(255,255,255,.75); max-width: 540px; margin: 0 auto 36px; }
-    .btn-hero {
-      display: inline-block;
-      background: var(--primary);
-      color: #fff;
-      padding: 14px 32px;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 700;
-      transition: background .15s;
-    }
-    .btn-hero:hover { background: #1d4ed8; text-decoration: none; }
-    .btn-ghost {
-      display: inline-block;
-      border: 2px solid rgba(255,255,255,.35);
-      color: #fff;
-      padding: 12px 28px;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 600;
-      margin-left: 12px;
-      transition: border-color .15s;
-    }
-    .btn-ghost:hover { border-color: rgba(255,255,255,.7); text-decoration: none; }
+/* ── Hero ── */
+.hero-band{background:linear-gradient(135deg,var(--navy) 0%,#1a3460 100%);
+  color:#fff;text-align:center;padding:60px 20px 50px}
+.hero-h1{font-size:2.1rem;font-weight:800;letter-spacing:-.4px;margin-bottom:10px}
+.hero-sub{font-size:1rem;color:rgba(255,255,255,.72);max-width:520px;margin:0 auto 32px}
 
-    /* Demo screenshot placeholder */
-    .demo-img {
-      margin: -36px auto 0;
-      max-width: 820px;
-      border-radius: 12px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.3);
-      overflow: hidden;
-    }
-    .demo-placeholder {
-      background: #1e2d4e;
-      padding: 40px 32px;
-      font-family: "Courier New", monospace;
-      font-size: .82rem;
-      color: #7dd3fc;
-      text-align: left;
-      line-height: 1.8;
-    }
-    .demo-placeholder .c-green  { color: #86efac; }
-    .demo-placeholder .c-red    { color: #fca5a5; }
-    .demo-placeholder .c-yellow { color: #fde68a; }
-    .demo-placeholder .c-gray   { color: #94a3b8; }
+/* ── Form card ── */
+.form-card{background:#fff;border-radius:var(--radius);padding:22px 24px;
+  box-shadow:0 4px 24px rgba(0,0,0,.15);text-align:left;max-width:760px;margin:0 auto}
+.input-group{display:flex;gap:10px;align-items:stretch}
+.input-wrap{flex:1;position:relative}
+.input-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.url-field{width:100%;padding:11px 12px 11px 38px;border:1.5px solid var(--border);
+  border-radius:8px;font-size:.95rem;outline:none;transition:border-color .15s}
+.url-field:focus{border-color:var(--blue)}
+.btn-check{background:var(--blue);color:#fff;border:none;border-radius:8px;
+  padding:0 22px;font-size:.95rem;font-weight:700;cursor:pointer;display:flex;
+  align-items:center;gap:8px;white-space:nowrap;transition:background .15s}
+.btn-check:hover{background:#1248b3}
+.btn-check:disabled{opacity:.6;cursor:not-allowed}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.35);
+  border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-    /* Features */
-    section { padding: 72px 0; }
-    .section-title { font-size: 1.75rem; font-weight: 800; margin-bottom: 12px; }
-    .section-sub   { color: var(--gray-600); max-width: 480px; margin-bottom: 48px; }
+/* ── Options ── */
+.opts-details{margin-top:14px}
+.opts-toggle{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;
+  color:var(--muted);font-size:.85rem;font-weight:500;user-select:none}
+.opts-toggle::-webkit-details-marker{display:none}
+.opts-toggle svg{transition:transform .2s}
+details[open] .opts-toggle svg{transform:rotate(180deg)}
+.opts-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:12px}
+.opt-field label{display:block;font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
+.opt-input-wrap{display:flex;align-items:center;gap:6px}
+.opt-input-wrap input{width:72px;padding:6px 8px;border:1.5px solid var(--border);
+  border-radius:6px;font-size:.88rem;text-align:center}
+.opt-unit{font-size:.8rem;color:var(--muted)}
 
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 24px;
-    }
-    .feature-card {
-      background: var(--gray-100);
-      border-radius: 10px;
-      padding: 24px;
-    }
-    .feature-icon { font-size: 1.8rem; margin-bottom: 12px; }
-    .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
-    .feature-card p  { font-size: .875rem; color: var(--gray-600); }
+/* ── Progress ── */
+.progress-card{background:var(--card);border-radius:var(--radius);padding:20px 24px;
+  margin:24px 0;box-shadow:0 2px 12px rgba(0,0,0,.08);border:1.5px solid var(--border)}
+.prog-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.pulse-dot{width:10px;height:10px;border-radius:50%;background:#22c55e;flex-shrink:0;
+  animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}50%{box-shadow:0 0 0 6px rgba(34,197,94,0)}}
+.prog-title{font-weight:700;font-size:1rem;flex:1}
+.btn-stop{background:#fff;color:var(--red);border:1.5px solid var(--red);
+  border-radius:6px;padding:5px 14px;font-size:.82rem;font-weight:700;cursor:pointer;transition:background .15s}
+.btn-stop:hover{background:#fff0ef}
+.prog-status{font-size:.85rem;color:var(--muted);margin-bottom:14px;min-height:1.2em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prog-stats{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.pstat{text-align:center}
+.pstat strong{display:block;font-size:1.4rem;font-weight:800;line-height:1}
+.pstat small{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.pstat--danger strong{color:var(--red)}
+.pstat--ok strong{color:var(--green)}
+.pstat-sep{width:1px;height:36px;background:var(--border)}
 
-    /* Install */
-    .install-section { background: var(--gray-100); }
-    .code-block {
-      background: var(--gray-900);
-      color: #e2e8f0;
-      border-radius: 8px;
-      padding: 20px 24px;
-      font-family: "Courier New", monospace;
-      font-size: .875rem;
-      overflow-x: auto;
-      margin-bottom: 16px;
-      line-height: 1.8;
-    }
-    .code-block .prompt { color: #64748b; user-select: none; }
-    .code-block .cmd    { color: #7dd3fc; }
-    .code-block .arg    { color: #86efac; }
-    .code-block .flag   { color: #fde68a; }
+/* ── Summary bar ── */
+.summary-bar{display:flex;align-items:center;background:var(--card);
+  border-radius:var(--radius);margin:24px 0 0;padding:18px 28px;
+  box-shadow:0 2px 12px rgba(0,0,0,.07);border:1.5px solid var(--border);flex-wrap:wrap;gap:16px}
+.sum-group{display:flex;flex-direction:column;align-items:center;min-width:80px}
+.sum-num{font-size:1.8rem;font-weight:800;line-height:1}
+.sum-num--danger{color:var(--red)}
+.sum-num--ok{color:var(--green)}
+.sum-lbl{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.sum-divider{width:1px;height:44px;background:var(--border)}
 
-    /* Output sample */
-    .output-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    @media (max-width: 600px) { .output-grid { grid-template-columns: 1fr; } }
-    .output-card {
-      border: 1.5px solid var(--gray-200);
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    .output-card-head {
-      background: var(--gray-100);
-      padding: 12px 16px;
-      font-size: .8rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      color: var(--gray-600);
-    }
-    .output-card-body { padding: 16px; font-size: .82rem; }
-    .pill {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 99px;
-      font-weight: 700;
-      font-size: .75rem;
-    }
-    .pill-red   { background: #fee2e2; color: var(--danger); }
-    .pill-green { background: #dcfce7; color: var(--success); }
-    .pill-blue  { background: #dbeafe; color: var(--primary); }
+/* ── Toolbar ── */
+.results-toolbar{display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;margin:14px 0 10px}
+.filter-group{display:flex;gap:6px;flex-wrap:wrap}
+.ftab{padding:7px 14px;border:1.5px solid var(--border);border-radius:20px;
+  background:#fff;color:var(--muted);font-size:.82rem;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;gap:6px;transition:all .15s}
+.ftab:hover,.ftab.active{border-color:var(--blue);color:var(--blue);background:#edf2ff}
+.ftab-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.ftab-dot--danger{background:var(--red)}
+.ftab-dot--ok{background:var(--green)}
+.ftab-badge{background:#e8edf5;color:var(--muted);border-radius:10px;
+  padding:1px 7px;font-size:.75rem;font-weight:700}
+.ftab.active .ftab-badge{background:#c7d7fc;color:var(--blue)}
+.export-group{display:flex;gap:8px}
+.btn-export{display:flex;align-items:center;gap:6px;padding:7px 14px;
+  border-radius:7px;font-size:.82rem;font-weight:700;cursor:pointer;border:1.5px solid;transition:background .15s}
+.btn-export--pdf{border-color:#c0392b;color:#c0392b;background:#fff}
+.btn-export--pdf:hover{background:#fff0ef}
+.btn-export--html{border-color:var(--blue);color:var(--blue);background:#fff}
+.btn-export--html:hover{background:#edf2ff}
 
-    /* Footer */
-    footer {
-      background: var(--gray-900);
-      color: rgba(255,255,255,.5);
-      text-align: center;
-      padding: 32px 24px;
-      font-size: .82rem;
-    }
-    footer a { color: rgba(255,255,255,.6); }
-  </style>
+/* ── Table ── */
+.tbl-card{background:var(--card);border-radius:var(--radius);
+  box-shadow:0 2px 12px rgba(0,0,0,.07);border:1.5px solid var(--border);overflow:hidden;margin-bottom:32px}
+.tbl-scroll{overflow-x:auto}
+.res-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.res-table th{background:#f8fafc;font-size:.72rem;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.5px;padding:10px 14px;border-bottom:1.5px solid var(--border);text-align:left}
+.res-table td{padding:10px 14px;border-bottom:1px solid #f0f3f9;vertical-align:top}
+.res-table tr:last-child td{border-bottom:none}
+.res-table tr.row-broken{background:#fffaf9}
+.col-no{width:44px}
+.col-status{width:90px}
+.col-url{min-width:220px}
+.col-found{min-width:180px}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:700;letter-spacing:.3px}
+.b2xx{background:#dcfce7;color:#166534}
+.b3xx{background:#fef9c3;color:#854d0e}
+.b4xx{background:#fee2e2;color:#991b1b}
+.b5xx{background:#fde8d8;color:#9a3412}
+.berr{background:#ffe4e6;color:#9f1239}
+.url-link{color:var(--blue);word-break:break-all;font-size:.83rem}
+.found-list{list-style:none;padding:0;margin:0}
+.found-list li{font-size:.78rem;color:var(--muted);word-break:break-all;margin-bottom:2px}
+.found-list a{color:var(--muted);font-size:.78rem}
+.found-list a:hover{color:var(--blue)}
+.no-data{color:var(--muted);font-size:.82rem;font-style:italic}
+.tbl-footer{padding:10px 14px;font-size:.8rem;color:var(--muted);background:#f8fafc;border-top:1px solid var(--border)}
+.empty-note{text-align:center;padding:32px;color:var(--muted);font-size:.9rem}
+
+/* ── Notice ── */
+.notice{background:#fffbea;border:1.5px solid #fde68a;border-radius:8px;
+  padding:12px 16px;margin-top:16px;font-size:.82rem;color:#78350f;line-height:1.5}
+.notice strong{color:#92400e}
+
+/* ── Footer ── */
+.site-footer{margin-top:auto;background:var(--navy);color:rgba(255,255,255,.5);
+  text-align:center;padding:18px;font-size:.8rem}
+.site-footer a{color:rgba(255,255,255,.65)}
+.site-footer a:hover{color:#fff}
+
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+[hidden]{display:none!important}
+</style>
 </head>
 <body>
 
-<header>
-  <div class="container header-inner">
-    <div class="logo">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+<!-- HEADER -->
+<header class="site-header">
+  <div class="container hdr-inner">
+    <a href="/" class="site-logo">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
       </svg>
       WebLinkChecker
-    </div>
-    <nav>
-      <a href="https://github.com/allenchen1113official/WebLinkChecker" target="_blank" rel="noopener">GitHub ↗</a>
+    </a>
+    <nav class="hdr-nav">
+      <a href="https://github.com/allenchen1113official/WebLinkChecker" target="_blank" rel="noopener">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577
+            0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.385-1.335-1.755
+            -1.335-1.755-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236
+            1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332
+            -5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0
+            1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405
+            2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84
+            1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81
+            2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 21.795
+            24 17.295 24 12c0-6.63-5.37-12-12-12"/>
+        </svg>
+        GitHub
+      </a>
     </nav>
   </div>
 </header>
 
-<section class="hero">
-  <h1>WebLinkChecker</h1>
-  <p>開源網站失效連結檢查工具<br>自動爬取全站連結，即時回報失效網址與來源頁面</p>
-  <a href="https://github.com/allenchen1113official/WebLinkChecker" class="btn-hero" target="_blank" rel="noopener">查看原始碼</a>
-  <a href="#install" class="btn-ghost">快速安裝</a>
-</section>
+<!-- HERO / FORM -->
+<div class="hero-band">
+  <div class="container">
+    <h1 class="hero-h1">免費網站失效連結檢查工具</h1>
+    <p class="hero-sub">輸入網址，自動爬取並驗證每一個連結，找出 404、連線失敗等失效連結</p>
 
-<!-- Terminal demo -->
-<div class="container">
-  <div class="demo-img" style="margin-top: 40px;">
-    <div class="demo-placeholder">
-<span class="c-gray">======================================================================</span>
-<span class="c-gray">                         LINK CHECK REPORT</span>
-<span class="c-gray">======================================================================</span>
-  Total links checked : <span class="c-green">142</span>
-  <span class="c-green">OK                  : 138</span>
-  <span class="c-red">Broken              : 4</span>
-  Scan time           : 2026-04-27 10:30:00
-<span class="c-gray">----------------------------------------------------------------------</span>
+    <div class="form-card">
+      <form id="check-form" autocomplete="off" novalidate>
+        <div class="input-group">
+          <label for="url-input" class="sr-only">網站網址</label>
+          <div class="input-wrap">
+            <svg class="input-icon" width="17" height="17" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input id="url-input" type="url" class="url-field"
+                   placeholder="https://your-website.com"
+                   spellcheck="false" autofocus required />
+          </div>
+          <button type="submit" id="submit-btn" class="btn-check">
+            <span id="btn-label">開始檢查</span>
+            <span id="btn-spinner" class="spinner" hidden></span>
+          </button>
+        </div>
 
-<span class="c-red">[1] https://example.com/old-page</span>
-     Status  : <span class="c-yellow">404</span>
-     Found on:
-       - <span class="c-gray">https://example.com/</span>
-       - <span class="c-gray">https://example.com/about</span>
+        <details class="opts-details">
+          <summary class="opts-toggle">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+            進階選項
+          </summary>
+          <div class="opts-body">
+            <div class="opt-field">
+              <label for="opt-timeout">請求逾時</label>
+              <div class="opt-input-wrap">
+                <input id="opt-timeout" type="number" value="15" min="1" max="120" />
+                <span class="opt-unit">秒</span>
+              </div>
+            </div>
+            <div class="opt-field">
+              <label for="opt-delay">請求間隔</label>
+              <div class="opt-input-wrap">
+                <input id="opt-delay" type="number" value="0" min="0" max="10" step="0.1" />
+                <span class="opt-unit">秒</span>
+              </div>
+            </div>
+            <div class="opt-field">
+              <label for="opt-maxpages">最大頁數</label>
+              <div class="opt-input-wrap">
+                <input id="opt-maxpages" type="number" value="0" min="0" />
+                <span class="opt-unit">頁&nbsp;(0=不限)</span>
+              </div>
+            </div>
+          </div>
+        </details>
 
-<span class="c-red">[2] https://ext-site.com/missing-resource</span>
-     Status  : <span class="c-yellow">ERROR: Connection error</span>
-     Found on:
-       - <span class="c-gray">https://example.com/contact</span>
+        <div class="notice">
+          <strong>注意：</strong>此靜態版本透過
+          <a href="https://corsproxy.io" target="_blank" rel="noopener">corsproxy.io</a>
+          在瀏覽器端執行，部分需登入或封鎖 CORS 的網站可能無法完整爬取。
+          如需完整功能，請使用
+          <a href="https://github.com/allenchen1113official/WebLinkChecker" target="_blank" rel="noopener">本機 Flask 版本</a>。
+        </div>
+      </form>
     </div>
   </div>
 </div>
 
-<!-- Features -->
-<section>
-  <div class="container">
-    <h2 class="section-title">功能特色</h2>
-    <p class="section-sub">無需登入，免費開源，本機執行保護隱私</p>
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon">🕷️</div>
-        <h3>全站爬取</h3>
-        <p>從起始網址出發，自動遞迴爬取同網域下所有頁面，發現每一個 <code>&lt;a href&gt;</code> 連結。</p>
+<!-- PROGRESS -->
+<div class="container" id="progress-wrap" hidden>
+  <div class="progress-card">
+    <div class="prog-top">
+      <span class="pulse-dot"></span>
+      <span id="prog-title" class="prog-title">正在檢查中…</span>
+      <button id="stop-btn" class="btn-stop">&#9632; 停止</button>
+    </div>
+    <p id="status-text" class="prog-status">初始化中…</p>
+    <div class="prog-stats">
+      <div class="pstat">
+        <strong id="stat-pages">0</strong>
+        <small>頁面</small>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">🔍</div>
-        <h3>即時串流結果</h3>
-        <p>透過 Server-Sent Events 即時推送每條連結的檢查結果，無需等候全部完成。</p>
+      <div class="pstat-sep"></div>
+      <div class="pstat">
+        <strong id="stat-total">0</strong>
+        <small>連結</small>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">📍</div>
-        <h3>標示來源頁面</h3>
-        <p>每個失效連結都會顯示是在哪些頁面被找到的，方便直接定位並修復。</p>
+      <div class="pstat-sep"></div>
+      <div class="pstat pstat--danger">
+        <strong id="stat-broken">0</strong>
+        <small>失效</small>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">🌐</div>
-        <h3>網頁操作介面</h3>
-        <p>內建 Flask 網頁應用程式，提供視覺化操作介面，支援篩選、匯出 CSV。</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">⌨️</div>
-        <h3>命令列工具</h3>
-        <p>同時提供 CLI 工具，可整合至 CI/CD 流程，發現失效連結時回傳 exit code 1。</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">📤</div>
-        <h3>CSV / JSON 匯出</h3>
-        <p>支援將完整報告匯出為 CSV 或 JSON 格式，方便後續分析或存檔。</p>
+      <div class="pstat-sep"></div>
+      <div class="pstat pstat--ok">
+        <strong id="stat-ok">0</strong>
+        <small>正常</small>
       </div>
     </div>
   </div>
-</section>
+</div>
 
-<!-- Install -->
-<section class="install-section" id="install">
-  <div class="container">
-    <h2 class="section-title">安裝與使用</h2>
-    <p class="section-sub">需要 Python 3.10+</p>
-
-    <h3 style="margin-bottom:12px;font-size:1rem;">1. 下載並安裝套件</h3>
-    <div class="code-block">
-      <div><span class="prompt"># </span><span class="cmd">git clone</span> <span class="arg">https://github.com/allenchen1113official/WebLinkChecker.git</span></div>
-      <div><span class="prompt">$ </span><span class="cmd">cd</span> <span class="arg">WebLinkChecker</span></div>
-      <div><span class="prompt">$ </span><span class="cmd">pip install</span> <span class="flag">-r</span> <span class="arg">requirements.txt</span></div>
+<!-- RESULTS -->
+<div class="container" id="results-wrap" hidden>
+  <div class="summary-bar">
+    <div class="sum-group">
+      <span class="sum-num" id="sum-total">0</span>
+      <span class="sum-lbl">總連結</span>
     </div>
-
-    <h3 style="margin-bottom:12px;margin-top:28px;font-size:1rem;">2a. 啟動網頁界面</h3>
-    <div class="code-block">
-      <div><span class="prompt">$ </span><span class="cmd">python</span> <span class="arg">app.py</span></div>
-      <div><span class="c-gray" style="color:#64748b"># 開啟瀏覽器前往 http://localhost:5000</span></div>
+    <div class="sum-divider"></div>
+    <div class="sum-group">
+      <span class="sum-num sum-num--danger" id="sum-broken">0</span>
+      <span class="sum-lbl">失效連結</span>
     </div>
-
-    <h3 style="margin-bottom:12px;margin-top:28px;font-size:1rem;">2b. 使用命令列工具</h3>
-    <div class="code-block">
-      <div><span class="prompt">$ </span><span class="cmd">python</span> <span class="arg">link_checker.py</span> <span class="arg">https://example.com</span></div>
-      <div><span class="prompt">$ </span><span class="cmd">python</span> <span class="arg">link_checker.py</span> <span class="arg">https://example.com</span> <span class="flag">--output</span> <span class="arg">report.csv</span></div>
-      <div><span class="prompt">$ </span><span class="cmd">python</span> <span class="arg">link_checker.py</span> <span class="arg">https://example.com</span> <span class="flag">--max-pages</span> <span class="arg">50</span> <span class="flag">--verbose</span></div>
+    <div class="sum-divider"></div>
+    <div class="sum-group">
+      <span class="sum-num sum-num--ok" id="sum-ok">0</span>
+      <span class="sum-lbl">正常連結</span>
     </div>
-
-    <h3 style="margin-bottom:12px;margin-top:28px;font-size:1rem;">常用選項</h3>
-    <div class="output-grid">
-      <div class="output-card">
-        <div class="output-card-head">CLI 選項</div>
-        <div class="output-card-body">
-          <table style="width:100%;border-collapse:collapse;font-size:.8rem;">
-            <tr><td style="padding:4px 8px 4px 0;white-space:nowrap"><code>--timeout SEC</code></td><td style="color:var(--gray-600)">請求逾時秒數（預設 15）</td></tr>
-            <tr><td style="padding:4px 8px 4px 0;white-space:nowrap"><code>--delay SEC</code></td><td style="color:var(--gray-600)">請求間隔秒數（預設 0）</td></tr>
-            <tr><td style="padding:4px 8px 4px 0;white-space:nowrap"><code>--max-pages N</code></td><td style="color:var(--gray-600)">最大爬取頁數（0=不限）</td></tr>
-            <tr><td style="padding:4px 8px 4px 0;white-space:nowrap"><code>--output FILE</code></td><td style="color:var(--gray-600)">儲存報告（.csv 或 .json）</td></tr>
-            <tr><td style="padding:4px 8px 4px 0;white-space:nowrap"><code>--broken-only</code></td><td style="color:var(--gray-600)">匯出時只含失效連結</td></tr>
-            <tr><td style="padding:4px 8px 4px 0;white-space:nowrap"><code>--verbose / -v</code></td><td style="color:var(--gray-600)">顯示每個 URL 的檢查過程</td></tr>
-          </table>
-        </div>
-      </div>
-      <div class="output-card">
-        <div class="output-card-head">Exit Code</div>
-        <div class="output-card-body">
-          <div style="display:flex;flex-direction:column;gap:10px;font-size:.85rem;">
-            <div><span class="pill pill-green">0</span> &nbsp;無失效連結</div>
-            <div><span class="pill pill-red">1</span> &nbsp;發現一個或多個失效連結</div>
-            <div style="margin-top:8px;color:var(--gray-600);font-size:.8rem;">可整合至 CI/CD，在有失效連結時讓 pipeline 失敗。</div>
-          </div>
-        </div>
-      </div>
+    <div class="sum-divider"></div>
+    <div class="sum-group">
+      <span class="sum-num" id="sum-pages">0</span>
+      <span class="sum-lbl">已爬頁面</span>
     </div>
   </div>
-</section>
 
-<footer>
-  <div>WebLinkChecker &copy; 2026 &mdash; 以 MIT License 開源</div>
-  <div style="margin-top:8px;">
+  <div class="results-toolbar">
+    <div class="filter-group" id="filter-tabs" role="tablist">
+      <button class="ftab active" data-filter="broken" role="tab">
+        <span class="ftab-dot ftab-dot--danger"></span>
+        僅失效
+        <span class="ftab-badge" id="cnt-broken">0</span>
+      </button>
+      <button class="ftab" data-filter="all" role="tab">
+        全部連結
+        <span class="ftab-badge" id="cnt-all">0</span>
+      </button>
+      <button class="ftab" data-filter="ok" role="tab">
+        <span class="ftab-dot ftab-dot--ok"></span>
+        正常
+        <span class="ftab-badge" id="cnt-ok">0</span>
+      </button>
+    </div>
+    <div class="export-group">
+      <button id="export-pdf-btn" class="btn-export btn-export--pdf">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="12" y1="18" x2="12" y2="12"/>
+          <polyline points="9 15 12 18 15 15"/>
+        </svg>
+        下載 PDF
+      </button>
+      <button id="export-html-btn" class="btn-export btn-export--html">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6"/>
+          <polyline points="8 6 2 12 8 18"/>
+        </svg>
+        下載網頁
+      </button>
+    </div>
+  </div>
+
+  <div class="tbl-card">
+    <div class="tbl-scroll">
+      <table class="res-table" id="res-table">
+        <thead>
+          <tr>
+            <th class="col-no">#</th>
+            <th class="col-status">狀態碼</th>
+            <th class="col-url">連結網址</th>
+            <th class="col-found">發現於（來源頁面）</th>
+          </tr>
+        </thead>
+        <tbody id="res-body"></tbody>
+      </table>
+    </div>
+    <p id="empty-note" class="empty-note" hidden>目前篩選條件下沒有結果。</p>
+    <div id="tbl-footer" class="tbl-footer" hidden>
+      <span id="visible-count"></span>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="site-footer">
+  <div class="container">
+    WebLinkChecker &copy; 2026 &mdash; 開源免費工具 &middot;
     <a href="https://github.com/allenchen1113official/WebLinkChecker" target="_blank" rel="noopener">GitHub</a>
-    &nbsp;·&nbsp;
-    <a href="https://github.com/allenchen1113official/WebLinkChecker/issues" target="_blank" rel="noopener">回報問題</a>
   </div>
 </footer>
 
+<script>
+/* ══════════════════════════════════════════════
+   CheckerCore — browser-side link crawler
+   Uses corsproxy.io to bypass CORS
+   ══════════════════════════════════════════════ */
+const PROXY = "https://corsproxy.io/?url=";
+
+class CheckerCore {
+  constructor(startUrl, opts = {}) {
+    this.startUrl   = this._norm(startUrl);
+    this.baseOrigin = new URL(this.startUrl).origin;
+    this.timeout    = (opts.timeout  || 15) * 1000;
+    this.delay      = (opts.delay    || 0)  * 1000;
+    this.maxPages   = opts.maxPages  || 0;
+    this.onResult   = opts.onResult  || (() => {});
+    this.onStatus   = opts.onStatus  || (() => {});
+
+    this.queue        = [this.startUrl];
+    this.visited      = new Set();
+    this.results      = new Map();
+    this.pagesCrawled = 0;
+    this.stopped      = false;
+  }
+
+  stop() { this.stopped = true; }
+
+  _norm(url) {
+    try { const u = new URL(url); u.hash = ""; return u.href; }
+    catch { return url; }
+  }
+
+  _sameDomain(url) {
+    try { return new URL(url).origin === this.baseOrigin; }
+    catch { return false; }
+  }
+
+  _ensure(url) {
+    if (!this.results.has(url))
+      this.results.set(url, { url, statusCode: null, error: null, foundOn: [], checked: false });
+    return this.results.get(url);
+  }
+
+  _pub(r) {
+    const broken = r.error !== null || (r.statusCode !== null && r.statusCode >= 400);
+    const label  = r.error ? "ERROR" : (r.statusCode !== null ? String(r.statusCode) : "—");
+    return { url: r.url, statusCode: r.statusCode, statusLabel: label,
+             error: r.error, isBroken: broken, foundOn: [...r.foundOn] };
+  }
+
+  async _fetch(url, method = "HEAD") {
+    const ctrl = new AbortController();
+    const tid  = setTimeout(() => ctrl.abort(), this.timeout);
+    try {
+      return await fetch(PROXY + encodeURIComponent(url), { method, signal: ctrl.signal });
+    } finally { clearTimeout(tid); }
+  }
+
+  async _checkLink(url) {
+    try {
+      let resp = await this._fetch(url, "HEAD");
+      if (resp.status === 405 || resp.status === 501)
+        resp = await this._fetch(url, "GET");
+      return { statusCode: resp.status, error: null };
+    } catch (e) {
+      return { statusCode: null, error: e.name === "AbortError" ? "Timeout" : (e.message || "Connection error") };
+    }
+  }
+
+  async _crawlPage(pageUrl) {
+    this.onStatus("爬取頁面: " + pageUrl);
+    let resp;
+    try {
+      resp = await this._fetch(pageUrl, "GET");
+    } catch (e) {
+      const r = this._ensure(pageUrl);
+      r.error = e.name === "AbortError" ? "Timeout" : (e.message || "Connection error");
+      r.checked = true;
+      this.onResult(this._pub(r));
+      return;
+    }
+    const r = this._ensure(pageUrl);
+    r.statusCode = resp.status;
+    r.checked    = true;
+
+    if (resp.status < 400) {
+      const ct = resp.headers.get("content-type") || "";
+      if (ct.includes("text/html")) {
+        this.pagesCrawled++;
+        const html  = await resp.text();
+        const links = this._extractLinks(html, pageUrl);
+        for (const link of links) {
+          const lr = this._ensure(link);
+          if (!lr.foundOn.includes(pageUrl)) lr.foundOn.push(pageUrl);
+          if (this._sameDomain(link) && !this.visited.has(link) && !this.queue.includes(link))
+            this.queue.push(link);
+        }
+      }
+    }
+    this.onResult(this._pub(r));
+  }
+
+  _extractLinks(html, base) {
+    const doc  = new DOMParser().parseFromString(html, "text/html");
+    const seen = new Set();
+    const out  = [];
+    for (const a of doc.querySelectorAll("a[href]")) {
+      const href = (a.getAttribute("href") || "").trim();
+      if (!href || /^(mailto:|tel:|javascript:|#)/i.test(href)) continue;
+      try {
+        const abs = this._norm(new URL(href, base).href);
+        if (!seen.has(abs)) { seen.add(abs); out.push(abs); }
+      } catch { /* skip malformed */ }
+    }
+    return out;
+  }
+
+  async run() {
+    this.onStatus("開始檢查: " + this.startUrl);
+    this._ensure(this.startUrl);
+
+    // Phase 1: crawl same-domain pages with GET
+    while (this.queue.length > 0 && !this.stopped) {
+      const page = this.queue.shift();
+      if (this.visited.has(page)) continue;
+      this.visited.add(page);
+      if (this.maxPages > 0 && this.pagesCrawled >= this.maxPages) break;
+      await this._crawlPage(page);
+      if (this.delay > 0) await new Promise(r => setTimeout(r, this.delay));
+    }
+
+    // Phase 2: HEAD-check all unchecked (external) links
+    const unchecked = [...this.results.values()].filter(r => !r.checked);
+    if (unchecked.length) this.onStatus(`檢查剩餘 ${unchecked.length} 個連結…`);
+    for (const r of unchecked) {
+      if (this.stopped) break;
+      this.onStatus("檢查: " + r.url);
+      const { statusCode, error } = await this._checkLink(r.url);
+      r.statusCode = statusCode;
+      r.error      = error;
+      r.checked    = true;
+      this.onResult(this._pub(r));
+      if (this.delay > 0) await new Promise(x => setTimeout(x, this.delay));
+    }
+
+    this.onStatus(this.stopped ? "已停止" : "檢查完成");
+    return [...this.results.values()].map(r => this._pub(r));
+  }
+}
+
+/* ══════════════════════════════════════════════
+   UI
+   ══════════════════════════════════════════════ */
+const $  = id => document.getElementById(id);
+let allResults    = [];
+let currentFilter = "broken";
+let checkedUrl    = "";
+let checker       = null;
+
+const form         = $("check-form");
+const urlInput     = $("url-input");
+const submitBtn    = $("submit-btn");
+const btnLabel     = $("btn-label");
+const btnSpinner   = $("btn-spinner");
+const progressWrap = $("progress-wrap");
+const resultsWrap  = $("results-wrap");
+const statusText   = $("status-text");
+const stopBtn      = $("stop-btn");
+const resBody      = $("res-body");
+const emptyNote    = $("empty-note");
+const tblFooter    = $("tbl-footer");
+const visibleCount = $("visible-count");
+
+form.addEventListener("submit", e => {
+  e.preventDefault();
+  const url = urlInput.value.trim();
+  if (!url) return;
+  try { new URL(url); } catch { alert("請輸入包含 http:// 或 https:// 的完整網址"); return; }
+  startCheck(url);
+});
+
+stopBtn.addEventListener("click", () => {
+  if (checker) checker.stop();
+  stopBtn.disabled    = true;
+  stopBtn.textContent = "停止中…";
+});
+
+$("filter-tabs").addEventListener("click", e => {
+  const btn = e.target.closest(".ftab");
+  if (!btn) return;
+  document.querySelectorAll(".ftab").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  currentFilter = btn.dataset.filter;
+  applyFilter();
+});
+
+$("export-pdf-btn").addEventListener("click",  exportPdf);
+$("export-html-btn").addEventListener("click", exportHtml);
+
+/* ── startCheck ── */
+function startCheck(url) {
+  checkedUrl = url;
+  allResults = [];
+
+  resBody.innerHTML       = "";
+  progressWrap.hidden     = false;
+  resultsWrap.hidden      = true;
+  emptyNote.hidden        = true;
+  tblFooter.hidden        = true;
+  $("prog-title").textContent = "正在檢查中…";
+  statusText.textContent  = "初始化中…";
+  stopBtn.disabled        = false;
+  stopBtn.textContent     = "■ 停止";
+  submitBtn.disabled      = true;
+  btnLabel.textContent    = "檢查中…";
+  btnSpinner.hidden       = false;
+  setStats(0, 0, 0, 0);
+  setBadges(0, 0, 0);
+
+  const timeout  = parseInt($("opt-timeout").value)  || 15;
+  const delay    = parseFloat($("opt-delay").value)  || 0;
+  const maxPages = parseInt($("opt-maxpages").value) || 0;
+
+  checker = new CheckerCore(url, {
+    timeout, delay, maxPages,
+    onStatus: msg => { statusText.textContent = msg; },
+    onResult: r   => { handleResult(r); },
+  });
+
+  checker.run().then(results => finish(results)).catch(err => {
+    statusText.textContent = "錯誤：" + err.message;
+    finish(allResults);
+  });
+}
+
+function handleResult(r) {
+  const idx = allResults.findIndex(x => x.url === r.url);
+  if (idx >= 0) {
+    allResults[idx] = r;
+    resBody.querySelector(`tr[data-url="${CSS.escape(r.url)}"]`)?.remove();
+  } else {
+    allResults.push(r);
+  }
+  appendRow(r, allResults.length);
+
+  const broken = allResults.filter(x => x.isBroken).length;
+  const pages  = checker ? checker.pagesCrawled : 0;
+  setStats(pages, allResults.length, broken, allResults.length - broken);
+  setBadges(allResults.length, broken, allResults.length - broken);
+  applyFilter();
+}
+
+function finish(results) {
+  allResults = results;
+  const broken = results.filter(r => r.isBroken).length;
+  const pages  = checker ? checker.pagesCrawled : 0;
+
+  $("prog-title").textContent = checker?.stopped ? "已停止" : "檢查完成";
+  statusText.textContent = checker?.stopped
+    ? `已停止（${results.length} 個連結，${broken} 個失效）`
+    : `完成！共 ${results.length} 個連結，${broken} 個失效`;
+
+  setStats(pages, results.length, broken, results.length - broken);
+  setBadges(results.length, broken, results.length - broken);
+  $("sum-total").textContent  = results.length;
+  $("sum-broken").textContent = broken;
+  $("sum-ok").textContent     = results.length - broken;
+  $("sum-pages").textContent  = pages;
+  resultsWrap.hidden = false;
+
+  submitBtn.disabled    = false;
+  btnLabel.textContent  = "開始檢查";
+  btnSpinner.hidden     = true;
+
+  resBody.innerHTML = "";
+  results.forEach((r, i) => appendRow(r, i + 1));
+  applyFilter();
+  checker = null;
+}
+
+/* ── Table ── */
+function appendRow(r, idx) {
+  const tr = document.createElement("tr");
+  tr.dataset.broken = r.isBroken ? "1" : "0";
+  tr.dataset.url    = r.url;
+  if (r.isBroken) tr.classList.add("row-broken");
+
+  const cls = r.error ? "berr"
+    : !r.statusCode       ? "berr"
+    : r.statusCode < 300  ? "b2xx"
+    : r.statusCode < 400  ? "b3xx"
+    : r.statusCode < 500  ? "b4xx" : "b5xx";
+
+  const foundHtml = r.foundOn.length
+    ? `<ul class="found-list">${r.foundOn.map(p =>
+        `<li><a href="${esc(p)}" target="_blank" rel="noopener">${esc(trunc(p, 60))}</a></li>`
+      ).join("")}</ul>`
+    : `<span class="no-data">（起始 URL）</span>`;
+
+  tr.innerHTML = `
+    <td class="col-no" style="color:var(--muted);font-size:.78rem">${idx}</td>
+    <td class="col-status"><span class="badge ${cls}">${esc(r.statusLabel)}</span></td>
+    <td class="col-url"><a class="url-link" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a></td>
+    <td class="col-found">${foundHtml}</td>`;
+  resBody.appendChild(tr);
+}
+
+function applyFilter() {
+  let visible = 0;
+  resBody.querySelectorAll("tr").forEach(tr => {
+    const show = currentFilter === "all"    ? true
+               : currentFilter === "broken" ? tr.dataset.broken === "1"
+               :                              tr.dataset.broken === "0";
+    tr.hidden = !show;
+    if (show) visible++;
+  });
+  emptyNote.hidden  = visible > 0;
+  tblFooter.hidden  = visible === 0;
+  visibleCount.textContent = `顯示 ${visible} 筆`;
+}
+
+/* ── Helpers ── */
+function setStats(pages, total, broken, ok) {
+  $("stat-pages").textContent  = pages;
+  $("stat-total").textContent  = total;
+  $("stat-broken").textContent = broken;
+  $("stat-ok").textContent     = ok;
+}
+function setBadges(total, broken, ok) {
+  $("cnt-all").textContent    = total;
+  $("cnt-broken").textContent = broken;
+  $("cnt-ok").textContent     = ok;
+}
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function trunc(s, n) { return s.length > n ? s.slice(0, n) + "…" : s; }
+function getFiltered() {
+  if (currentFilter === "broken") return allResults.filter(r => r.isBroken);
+  if (currentFilter === "ok")     return allResults.filter(r => !r.isBroken);
+  return allResults;
+}
+
+/* ── PDF Export ── */
+function exportPdf() {
+  const rows = getFiltered();
+  if (!rows.length) { alert("目前沒有資料可匯出。"); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  doc.setFontSize(14);
+  doc.text("WebLinkChecker Report", 14, 16);
+  doc.setFontSize(9); doc.setTextColor(100);
+  doc.text("URL: " + checkedUrl, 14, 23);
+  doc.text("Generated: " + new Date().toLocaleString(), 14, 28);
+  doc.text(`Total: ${allResults.length}  Broken: ${allResults.filter(r=>r.isBroken).length}  OK: ${allResults.filter(r=>!r.isBroken).length}`, 14, 33);
+  doc.autoTable({
+    startY: 38,
+    head: [["#","Status","URL","Found On"]],
+    body: rows.map((r, i) => [i+1, r.statusLabel, r.url, r.foundOn.join("\n") || "(start URL)"]),
+    styles:       { fontSize: 7, cellPadding: 2 },
+    headStyles:   { fillColor: [21,88,214], textColor: 255, fontStyle: "bold" },
+    columnStyles: { 0:{cellWidth:10}, 1:{cellWidth:18}, 2:{cellWidth:130}, 3:{cellWidth:100} },
+    didParseCell(d) {
+      if (d.section === "body" && rows[d.row.index]?.isBroken) {
+        d.cell.styles.fillColor = [255,236,235];
+        d.cell.styles.textColor = [168,30,30];
+      }
+    },
+  });
+  doc.save(`weblinkchecker-${new Date().toISOString().slice(0,10)}.pdf`);
+}
+
+/* ── HTML Export ── */
+function exportHtml() {
+  const rows = getFiltered();
+  if (!rows.length) { alert("目前沒有資料可匯出。"); return; }
+  const rowsHtml = rows.map((r,i) => `<tr class="${r.isBroken?"broken":"ok"}">
+    <td>${i+1}</td><td>${esc(r.statusLabel)}</td>
+    <td><a href="${esc(r.url)}">${esc(r.url)}</a></td>
+    <td>${r.foundOn.length ? r.foundOn.map(p=>`<a href="${esc(p)}">${esc(p)}</a>`).join("<br>") : "(start URL)"}</td>
+  </tr>`).join("");
+  const html = `<!DOCTYPE html>
+<html lang="zh-TW"><head><meta charset="UTF-8"/>
+<title>WebLinkChecker Report</title>
+<style>body{font-family:system-ui,sans-serif;padding:24px;color:#1a1f2e}
+h1{margin-bottom:4px}p{color:#64748b;font-size:.88rem;margin-bottom:18px}
+table{border-collapse:collapse;width:100%;font-size:.84rem}
+th{background:#1558d6;color:#fff;padding:8px 12px;text-align:left}
+td{padding:8px 12px;border-bottom:1px solid #e2e8f0;vertical-align:top}
+tr.broken{background:#fff5f5}tr.broken td:nth-child(2){color:#c0392b;font-weight:700}
+tr.ok td:nth-child(2){color:#1a7a40;font-weight:700}a{color:#1558d6}</style>
+</head><body>
+<h1>WebLinkChecker Report</h1>
+<p>URL: <a href="${esc(checkedUrl)}">${esc(checkedUrl)}</a> &mdash; ${new Date().toLocaleString()}<br>
+Total: ${allResults.length} &nbsp; Broken: ${allResults.filter(r=>r.isBroken).length} &nbsp; OK: ${allResults.filter(r=>!r.isBroken).length}</p>
+<table><thead><tr><th>#</th><th>Status</th><th>URL</th><th>Found On</th></tr></thead>
+<tbody>${rowsHtml}</tbody></table></body></html>`;
+  const a = Object.assign(document.createElement("a"), {
+    href: URL.createObjectURL(new Blob([html], {type:"text/html"})),
+    download: `weblinkchecker-${new Date().toISOString().slice(0,10)}.html`,
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
 </body>
 </html>
