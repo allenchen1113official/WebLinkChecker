@@ -62,9 +62,20 @@ details[open] .opts-toggle svg{transform:rotate(180deg)}
 .opts-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:12px}
 .opt-field label{display:block;font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
 .opt-input-wrap{display:flex;align-items:center;gap:6px}
-.opt-input-wrap input{width:72px;padding:6px 8px;border:1.5px solid var(--border);
+.opt-input-wrap input[type=number]{width:72px;padding:6px 8px;border:1.5px solid var(--border);
   border-radius:6px;font-size:.88rem;text-align:center}
 .opt-unit{font-size:.8rem;color:var(--muted)}
+.opt-field--wide{grid-column:1/-1}
+.opt-field--wide input[type=text]{width:100%;padding:7px 10px;border:1.5px solid var(--border);
+  border-radius:6px;font-size:.83rem;font-family:monospace}
+.opt-field--wide input[type=text]:focus{outline:none;border-color:var(--blue)}
+.opt-field--wide .opt-hint{font-size:.75rem;color:var(--muted);margin-top:4px}
+
+/* ── Proxy badge ── */
+.proxy-badge{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;
+  font-weight:600;padding:2px 8px;border-radius:10px;background:#e0f2fe;color:#0369a1;margin-top:10px}
+.proxy-badge.warn{background:#fef9c3;color:#854d0e}
+.proxy-badge.err{background:#fee2e2;color:#991b1b}
 
 /* ── Progress ── */
 .progress-card{background:var(--card);border-radius:var(--radius);padding:20px 24px;
@@ -148,11 +159,6 @@ details[open] .opts-toggle svg{transform:rotate(180deg)}
 .no-data{color:var(--muted);font-size:.82rem;font-style:italic}
 .tbl-footer{padding:10px 14px;font-size:.8rem;color:var(--muted);background:#f8fafc;border-top:1px solid var(--border)}
 .empty-note{text-align:center;padding:32px;color:var(--muted);font-size:.9rem}
-
-/* ── Notice ── */
-.notice{background:#fffbea;border:1.5px solid #fde68a;border-radius:8px;
-  padding:12px 16px;margin-top:16px;font-size:.82rem;color:#78350f;line-height:1.5}
-.notice strong{color:#92400e}
 
 /* ── Footer ── */
 .site-footer{margin-top:auto;background:var(--navy);color:rgba(255,255,255,.5);
@@ -252,16 +258,20 @@ details[open] .opts-toggle svg{transform:rotate(180deg)}
                 <span class="opt-unit">頁&nbsp;(0=不限)</span>
               </div>
             </div>
+            <div class="opt-field opt-field--wide">
+              <label for="opt-proxy">自訂 Proxy URL（選填）</label>
+              <input id="opt-proxy" type="text"
+                placeholder="https://your-proxy.example.com/?url="
+                spellcheck="false" />
+              <p class="opt-hint">
+                留空則自動輪替內建 Proxy（corsproxy.io → allorigins.win）。
+                自訂格式：<code>https://proxy/?url=</code>，工具會在後面附加編碼後的目標網址。
+              </p>
+            </div>
           </div>
         </details>
 
-        <div class="notice">
-          <strong>注意：</strong>此靜態版本透過
-          <a href="https://corsproxy.io" target="_blank" rel="noopener">corsproxy.io</a>
-          在瀏覽器端執行，部分需登入或封鎖 CORS 的網站可能無法完整爬取。
-          如需完整功能，請使用
-          <a href="https://github.com/allenchen1113official/WebLinkChecker" target="_blank" rel="noopener">本機 Flask 版本</a>。
-        </div>
+        <div id="proxy-status"></div>
       </form>
     </div>
   </div>
@@ -394,11 +404,60 @@ details[open] .opts-toggle svg{transform:rotate(180deg)}
 
 <script>
 /* ══════════════════════════════════════════════
-   CheckerCore — browser-side link crawler
-   Uses corsproxy.io to bypass CORS
+   Proxy strategy
+   Priority: custom → corsproxy.io → allorigins.win → no-cors fallback
    ══════════════════════════════════════════════ */
-const PROXY = "https://corsproxy.io/?url=";
 
+const BUILTIN_PROXIES = [
+  { name: "corsproxy.io",   make: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
+  { name: "allorigins.win", make: u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+];
+
+/* Probe a proxy with a known-good URL to verify it works */
+async function probeProxy(makeUrl) {
+  try {
+    const probe = makeUrl("https://httpbin.org/status/200");
+    const r = await fetch(probe, { method: "HEAD", signal: AbortSignal.timeout(6000) });
+    return r.status < 500;
+  } catch { return false; }
+}
+
+class ProxyManager {
+  constructor(customPrefix) {
+    this._custom = customPrefix ? customPrefix.trim() : "";
+    this._index  = 0;   // current builtin index
+    this._active = null; // {name, make}
+  }
+
+  /* Return the active proxy's make function, auto-advancing on failure */
+  get current() {
+    if (this._active) return this._active;
+    if (this._custom) {
+      this._active = { name: "自訂 Proxy", make: u => this._custom + encodeURIComponent(u) };
+    } else {
+      this._active = BUILTIN_PROXIES[this._index] || null;
+    }
+    return this._active;
+  }
+
+  get name() { return this.current?.name || "no-cors"; }
+
+  /* Called when current proxy fails — try the next builtin */
+  async advance() {
+    if (this._custom) return false; // custom proxy: no fallback
+    this._index++;
+    this._active = BUILTIN_PROXIES[this._index] || null;
+    return this._active !== null;
+  }
+
+  makeUrl(targetUrl) {
+    return this.current ? this.current.make(targetUrl) : null;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   CheckerCore
+   ══════════════════════════════════════════════ */
 class CheckerCore {
   constructor(startUrl, opts = {}) {
     this.startUrl   = this._norm(startUrl);
@@ -408,7 +467,9 @@ class CheckerCore {
     this.maxPages   = opts.maxPages  || 0;
     this.onResult   = opts.onResult  || (() => {});
     this.onStatus   = opts.onStatus  || (() => {});
+    this.onProxyChange = opts.onProxyChange || (() => {});
 
+    this.proxy        = new ProxyManager(opts.customProxy || "");
     this.queue        = [this.startUrl];
     this.visited      = new Set();
     this.results      = new Map();
@@ -441,38 +502,84 @@ class CheckerCore {
              error: r.error, isBroken: broken, foundOn: [...r.foundOn] };
   }
 
-  async _fetch(url, method = "HEAD") {
+  /* Fetch via proxy with automatic fallback to next proxy on network failure */
+  async _proxyFetch(targetUrl, method = "GET") {
     const ctrl = new AbortController();
     const tid  = setTimeout(() => ctrl.abort(), this.timeout);
     try {
-      return await fetch(PROXY + encodeURIComponent(url), { method, signal: ctrl.signal });
-    } finally { clearTimeout(tid); }
-  }
-
-  async _checkLink(url) {
-    try {
-      let resp = await this._fetch(url, "HEAD");
-      if (resp.status === 405 || resp.status === 501)
-        resp = await this._fetch(url, "GET");
-      return { statusCode: resp.status, error: null };
-    } catch (e) {
-      return { statusCode: null, error: e.name === "AbortError" ? "Timeout" : (e.message || "Connection error") };
+      while (this.proxy.current) {
+        const proxyUrl = this.proxy.makeUrl(targetUrl);
+        try {
+          const resp = await fetch(proxyUrl, { method, signal: ctrl.signal });
+          /* allorigins returns 200 even for errors; treat 5xx proxy errors as proxy failure */
+          if (resp.status === 502 || resp.status === 503 || resp.status === 504) {
+            throw new Error(`Proxy ${this.proxy.name} returned ${resp.status}`);
+          }
+          return { resp, viaProxy: true };
+        } catch (e) {
+          if (e.name === "AbortError") throw e; // timeout — stop trying
+          /* Network error on this proxy → try next */
+          const hasNext = await this.proxy.advance();
+          if (hasNext) {
+            this.onProxyChange(this.proxy.name);
+            this.onStatus(`切換至備援 Proxy: ${this.proxy.name}`);
+          } else {
+            /* No more proxies — fall through to no-cors */
+            break;
+          }
+        }
+      }
+      /* Last resort: no-cors (opaque response — can't read status/body) */
+      const resp = await fetch(targetUrl, { method: "HEAD", mode: "no-cors", signal: ctrl.signal });
+      return { resp, viaProxy: false, opaque: true };
+    } finally {
+      clearTimeout(tid);
     }
   }
 
+  /* Check a single link (external or unreached internal) */
+  async _checkLink(url) {
+    try {
+      let { resp, opaque } = await this._proxyFetch(url, "HEAD");
+      if (opaque) {
+        /* no-cors opaque: server responded → treat as OK (can't distinguish 2xx/4xx) */
+        return { statusCode: 0, error: null, note: "no-cors" };
+      }
+      if (resp.status === 405 || resp.status === 501) {
+        ({ resp, opaque } = await this._proxyFetch(url, "GET"));
+        if (opaque) return { statusCode: 0, error: null, note: "no-cors" };
+      }
+      return { statusCode: resp.status, error: null };
+    } catch (e) {
+      if (e.name === "AbortError") return { statusCode: null, error: "Timeout" };
+      return { statusCode: null, error: e.message || "Connection error" };
+    }
+  }
+
+  /* Crawl a same-domain page via proxy (need HTML body) */
   async _crawlPage(pageUrl) {
     this.onStatus("爬取頁面: " + pageUrl);
-    let resp;
+    let resp, opaque;
     try {
-      resp = await this._fetch(pageUrl, "GET");
+      ({ resp, opaque } = await this._proxyFetch(pageUrl, "GET"));
     } catch (e) {
       const r = this._ensure(pageUrl);
-      r.error = e.name === "AbortError" ? "Timeout" : (e.message || "Connection error");
+      r.error   = e.name === "AbortError" ? "Timeout" : (e.message || "Connection error");
       r.checked = true;
       this.onResult(this._pub(r));
       return;
     }
+
     const r = this._ensure(pageUrl);
+
+    if (opaque) {
+      /* no-cors: can't read HTML — record as reachable but can't extract links */
+      r.statusCode = 0;
+      r.checked    = true;
+      this.onResult(this._pub(r));
+      return;
+    }
+
     r.statusCode = resp.status;
     r.checked    = true;
 
@@ -510,9 +617,10 @@ class CheckerCore {
 
   async run() {
     this.onStatus("開始檢查: " + this.startUrl);
+    this.onProxyChange(this.proxy.name);
     this._ensure(this.startUrl);
 
-    // Phase 1: crawl same-domain pages with GET
+    /* Phase 1: crawl same-domain pages */
     while (this.queue.length > 0 && !this.stopped) {
       const page = this.queue.shift();
       if (this.visited.has(page)) continue;
@@ -522,7 +630,7 @@ class CheckerCore {
       if (this.delay > 0) await new Promise(r => setTimeout(r, this.delay));
     }
 
-    // Phase 2: HEAD-check all unchecked (external) links
+    /* Phase 2: HEAD-check all unchecked (external) links */
     const unchecked = [...this.results.values()].filter(r => !r.checked);
     if (unchecked.length) this.onStatus(`檢查剩餘 ${unchecked.length} 個連結…`);
     for (const r of unchecked) {
@@ -563,6 +671,12 @@ const resBody      = $("res-body");
 const emptyNote    = $("empty-note");
 const tblFooter    = $("tbl-footer");
 const visibleCount = $("visible-count");
+const proxyStatus  = $("proxy-status");
+
+function showProxyBadge(name, cls = "") {
+  proxyStatus.innerHTML =
+    `<span class="proxy-badge ${cls}">&#x1F310; 使用 Proxy：${esc(name)}</span>`;
+}
 
 form.addEventListener("submit", e => {
   e.preventDefault();
@@ -594,7 +708,6 @@ $("export-html-btn").addEventListener("click", exportHtml);
 function startCheck(url) {
   checkedUrl = url;
   allResults = [];
-
   resBody.innerHTML       = "";
   progressWrap.hidden     = false;
   resultsWrap.hidden      = true;
@@ -610,14 +723,16 @@ function startCheck(url) {
   setStats(0, 0, 0, 0);
   setBadges(0, 0, 0);
 
-  const timeout  = parseInt($("opt-timeout").value)  || 15;
-  const delay    = parseFloat($("opt-delay").value)  || 0;
-  const maxPages = parseInt($("opt-maxpages").value) || 0;
+  const timeout    = parseInt($("opt-timeout").value)   || 15;
+  const delay      = parseFloat($("opt-delay").value)   || 0;
+  const maxPages   = parseInt($("opt-maxpages").value)  || 0;
+  const customProxy = $("opt-proxy").value.trim();
 
   checker = new CheckerCore(url, {
-    timeout, delay, maxPages,
-    onStatus: msg => { statusText.textContent = msg; },
-    onResult: r   => { handleResult(r); },
+    timeout, delay, maxPages, customProxy,
+    onStatus:      msg  => { statusText.textContent = msg; },
+    onResult:      r    => { handleResult(r); },
+    onProxyChange: name => { showProxyBadge(name, name === "no-cors" ? "warn" : ""); },
   });
 
   checker.run().then(results => finish(results)).catch(err => {
@@ -635,7 +750,6 @@ function handleResult(r) {
     allResults.push(r);
   }
   appendRow(r, allResults.length);
-
   const broken = allResults.filter(x => x.isBroken).length;
   const pages  = checker ? checker.pagesCrawled : 0;
   setStats(pages, allResults.length, broken, allResults.length - broken);
@@ -647,12 +761,10 @@ function finish(results) {
   allResults = results;
   const broken = results.filter(r => r.isBroken).length;
   const pages  = checker ? checker.pagesCrawled : 0;
-
   $("prog-title").textContent = checker?.stopped ? "已停止" : "檢查完成";
   statusText.textContent = checker?.stopped
     ? `已停止（${results.length} 個連結，${broken} 個失效）`
     : `完成！共 ${results.length} 個連結，${broken} 個失效`;
-
   setStats(pages, results.length, broken, results.length - broken);
   setBadges(results.length, broken, results.length - broken);
   $("sum-total").textContent  = results.length;
@@ -660,11 +772,9 @@ function finish(results) {
   $("sum-ok").textContent     = results.length - broken;
   $("sum-pages").textContent  = pages;
   resultsWrap.hidden = false;
-
   submitBtn.disabled    = false;
   btnLabel.textContent  = "開始檢查";
   btnSpinner.hidden     = true;
-
   resBody.innerHTML = "";
   results.forEach((r, i) => appendRow(r, i + 1));
   applyFilter();
@@ -679,10 +789,13 @@ function appendRow(r, idx) {
   if (r.isBroken) tr.classList.add("row-broken");
 
   const cls = r.error ? "berr"
+    : r.statusCode === 0  ? "b2xx"   /* no-cors opaque — treated as reachable */
     : !r.statusCode       ? "berr"
     : r.statusCode < 300  ? "b2xx"
     : r.statusCode < 400  ? "b3xx"
     : r.statusCode < 500  ? "b4xx" : "b5xx";
+
+  const label = r.statusCode === 0 ? "OK*" : r.statusLabel;
 
   const foundHtml = r.foundOn.length
     ? `<ul class="found-list">${r.foundOn.map(p =>
@@ -692,7 +805,7 @@ function appendRow(r, idx) {
 
   tr.innerHTML = `
     <td class="col-no" style="color:var(--muted);font-size:.78rem">${idx}</td>
-    <td class="col-status"><span class="badge ${cls}">${esc(r.statusLabel)}</span></td>
+    <td class="col-status"><span class="badge ${cls}">${esc(label)}</span></td>
     <td class="col-url"><a class="url-link" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a></td>
     <td class="col-found">${foundHtml}</td>`;
   resBody.appendChild(tr);
@@ -750,7 +863,7 @@ function exportPdf() {
   doc.autoTable({
     startY: 38,
     head: [["#","Status","URL","Found On"]],
-    body: rows.map((r, i) => [i+1, r.statusLabel, r.url, r.foundOn.join("\n") || "(start URL)"]),
+    body: rows.map((r, i) => [i+1, r.statusCode===0?"OK*":r.statusLabel, r.url, r.foundOn.join("\n")||"(start URL)"]),
     styles:       { fontSize: 7, cellPadding: 2 },
     headStyles:   { fillColor: [21,88,214], textColor: 255, fontStyle: "bold" },
     columnStyles: { 0:{cellWidth:10}, 1:{cellWidth:18}, 2:{cellWidth:130}, 3:{cellWidth:100} },
@@ -769,9 +882,9 @@ function exportHtml() {
   const rows = getFiltered();
   if (!rows.length) { alert("目前沒有資料可匯出。"); return; }
   const rowsHtml = rows.map((r,i) => `<tr class="${r.isBroken?"broken":"ok"}">
-    <td>${i+1}</td><td>${esc(r.statusLabel)}</td>
+    <td>${i+1}</td><td>${esc(r.statusCode===0?"OK*":r.statusLabel)}</td>
     <td><a href="${esc(r.url)}">${esc(r.url)}</a></td>
-    <td>${r.foundOn.length ? r.foundOn.map(p=>`<a href="${esc(p)}">${esc(p)}</a>`).join("<br>") : "(start URL)"}</td>
+    <td>${r.foundOn.length?r.foundOn.map(p=>`<a href="${esc(p)}">${esc(p)}</a>`).join("<br>"):"(start URL)"}</td>
   </tr>`).join("");
   const html = `<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="UTF-8"/>
@@ -786,7 +899,8 @@ tr.ok td:nth-child(2){color:#1a7a40;font-weight:700}a{color:#1558d6}</style>
 </head><body>
 <h1>WebLinkChecker Report</h1>
 <p>URL: <a href="${esc(checkedUrl)}">${esc(checkedUrl)}</a> &mdash; ${new Date().toLocaleString()}<br>
-Total: ${allResults.length} &nbsp; Broken: ${allResults.filter(r=>r.isBroken).length} &nbsp; OK: ${allResults.filter(r=>!r.isBroken).length}</p>
+Total: ${allResults.length} &nbsp; Broken: ${allResults.filter(r=>r.isBroken).length} &nbsp; OK: ${allResults.filter(r=>!r.isBroken).length}
+<br><small>* OK* = no-cors mode, server responded but status code unavailable</small></p>
 <table><thead><tr><th>#</th><th>Status</th><th>URL</th><th>Found On</th></tr></thead>
 <tbody>${rowsHtml}</tbody></table></body></html>`;
   const a = Object.assign(document.createElement("a"), {
