@@ -12,7 +12,7 @@
 </head>
 <body>
 
-<!-- ════════════════ HEADER ════════════════ -->
+<!-- ╔════════════════ HEADER ════════════════ -->
 <header class="site-header">
   <div class="container hdr-inner">
     <a href="/" class="site-logo">
@@ -43,11 +43,11 @@
   </div>
 </header>
 
-<!-- ════════════════ HERO / FORM ════════════════ -->
+<!-- ╔════════════════ HERO / FORM ════════════════ -->
 <div class="hero-band">
   <div class="container">
     <h1 class="hero-h1">免費網站失效連結檢查工具</h1>
-    <p class="hero-sub">輸入網址，自動爬取並驗證每一個連結，找出 404、連線失敗等失效連結</p>
+    <p class="hero-sub">輸入網址，自動梙取並驗證每一個連結，找出 404、連線失敗等失效連結</p>
 
     <div class="form-card">
       <form id="check-form" autocomplete="off" novalidate>
@@ -110,7 +110,7 @@
   </div>
 </div><!-- /hero-band -->
 
-<!-- ════════════════ PROGRESS ════════════════ -->
+<!-- ╔════════════════ PROGRESS ════════════════ -->
 <div class="container" id="progress-wrap" hidden>
   <div class="progress-card">
     <div class="prog-top">
@@ -143,7 +143,7 @@
   </div>
 </div>
 
-<!-- ════════════════ RESULTS ════════════════ -->
+<!-- ╔════════════════ RESULTS ════════════════ -->
 <div class="container" id="results-wrap" hidden>
 
   <!-- Summary bar -->
@@ -165,7 +165,7 @@
     <div class="sum-divider"></div>
     <div class="sum-group">
       <span class="sum-num" id="sum-pages">0</span>
-      <span class="sum-lbl">已爬頁面</span>
+      <span class="sum-lbl">已梙頁面</span>
     </div>
   </div>
 
@@ -214,9 +214,10 @@
         <thead>
           <tr>
             <th class="col-no">#</th>
-            <th class="col-status">狀態碼</th>
-            <th class="col-url">失效 / 連結網址</th>
-            <th class="col-found">發現於（來源頁面）</th>
+            <th class="col-url">失效連結</th>
+            <th class="col-text">連結文字</th>
+            <th class="col-found">發現於</th>
+            <th class="col-status">伺服器回應</th>
           </tr>
         </thead>
         <tbody id="res-body"></tbody>
@@ -230,7 +231,7 @@
 
 </div><!-- /results-wrap -->
 
-<!-- ════════════════ FOOTER ════════════════ -->
+<!-- ╔════════════════ FOOTER ════════════════ -->
 <footer class="site-footer">
   <div class="container">
     <p>WebLinkChecker &copy; 2026 &mdash; 開源免費工具 &middot;

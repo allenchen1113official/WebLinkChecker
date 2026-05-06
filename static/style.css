@@ -470,9 +470,10 @@ details[open] .opts-toggle svg { transform: rotate(180deg); }
 .res-table tbody tr.row-broken:hover td { background: var(--red-light); }
 
 .col-no     { width: 46px; text-align: center; }
+.col-url    { min-width: 220px; word-break: break-all; }
+.col-text   { min-width: 100px; }
+.col-found  { min-width: 90px; white-space: nowrap; }
 .col-status { width: 100px; }
-.col-url    { min-width: 240px; word-break: break-all; }
-.col-found  { min-width: 220px; word-break: break-all; }
 
 /* Status badges */
 .badge {
