@@ -62,6 +62,16 @@ def is_same_domain(url: str, base: str) -> bool:
     return urlparse(url).netloc == urlparse(base).netloc
 
 
+def is_under_start_path(url: str, start_url: str) -> bool:
+    """True if url is on the same domain AND under start_url's directory path."""
+    pu = urlparse(url)
+    ps = urlparse(start_url)
+    if pu.netloc != ps.netloc:
+        return False
+    base_path = ps.path if ps.path.endswith("/") else ps.path.rsplit("/", 1)[0] + "/"
+    return pu.path.startswith(base_path)
+
+
 def normalize_url(url: str) -> str:
     parsed = urlparse(url)
     return parsed._replace(fragment="").geturl()
@@ -113,6 +123,7 @@ def _parse_sitemap_urls(
                     u = normalize_url(loc.text.strip())
                     if u.startswith(base_origin):
                         urls.append(u)
+                        # caller will filter by start_url path
     except Exception:
         pass
     return urls
@@ -196,6 +207,8 @@ def crawl(
     # Seed queue from sitemap.xml so orphan pages are also discovered
     _status("Loading sitemap...")
     for u in _load_sitemap(session, start_url, timeout):
+        if not is_under_start_path(u, start_url):
+            continue
         if u not in crawled and u not in queued:
             pages_to_crawl.append(u)
             queued.add(u)
@@ -245,7 +258,7 @@ def crawl(
                     lr.link_text = text
                 if page_url not in lr.found_on:
                     lr.found_on.append(page_url)
-                if is_same_domain(link, base) and link not in crawled and link not in queued:
+                if is_under_start_path(link, start_url) and link not in crawled and link not in queued:
                     pages_to_crawl.append(link)
                     queued.add(link)
 

@@ -465,6 +465,8 @@ class CheckerCore {
   constructor(startUrl, opts = {}) {
     this.startUrl   = this._norm(startUrl);
     this.baseOrigin = new URL(this.startUrl).origin;
+    const sp = new URL(this.startUrl).pathname;
+    this._basePath  = sp.endsWith("/") ? sp : sp.replace(/[^/]*$/, "");
     this.timeout    = (opts.timeout  || 15) * 1000;
     this.delay      = (opts.delay    || 0)  * 1000;
     this.maxPages   = opts.maxPages  || 0;
@@ -490,6 +492,14 @@ class CheckerCore {
   _sameDomain(url) {
     try { return new URL(url).origin === this.baseOrigin; }
     catch { return false; }
+  }
+
+  _isCrawlable(url) {
+    try {
+      const u = new URL(url);
+      if (u.origin !== this.baseOrigin) return false;
+      return u.pathname.startsWith(this._basePath);
+    } catch { return false; }
   }
 
   _ensure(url) {
@@ -596,7 +606,7 @@ class CheckerCore {
           const lr = this._ensure(link);
           if (!lr.linkText && text) lr.linkText = text;
           if (!lr.foundOn.includes(pageUrl)) lr.foundOn.push(pageUrl);
-          if (this._sameDomain(link) && !this.visited.has(link))
+          if (this._isCrawlable(link) && !this.visited.has(link))
             this.queue.add(link);
         }
       }
@@ -643,7 +653,7 @@ class CheckerCore {
         let count = 0;
         for (const loc of doc.querySelectorAll("urlset > url > loc")) {
           const u = this._norm(loc.textContent.trim());
-          if (this._sameDomain(u) && !this.visited.has(u) && !this.queue.has(u)) {
+          if (this._isCrawlable(u) && !this.visited.has(u) && !this.queue.has(u)) {
             this.queue.add(u);
             this._ensure(u);
             count++;
