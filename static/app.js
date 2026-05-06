@@ -160,26 +160,35 @@ function appendRow(r, rowNum) {
   tdNo.style.color = "var(--gray-400)";
   tdNo.textContent = rowNum;
 
-  // Status badge
-  const tdSt = document.createElement("td");
-  tdSt.innerHTML = `<span class="badge ${badgeCls(r)}">${esc(r.status_label)}</span>`;
-
-  // URL
+  // Broken link URL
   const tdUrl = document.createElement("td");
+  tdUrl.className = "col-url";
   tdUrl.innerHTML = `<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a>`;
 
-  // Found on
+  // Link text
+  const tdText = document.createElement("td");
+  tdText.className = "col-text";
+  tdText.textContent = r.link_text || "";
+
+  // Page where found (url + src links)
   const tdFound = document.createElement("td");
+  tdFound.className = "col-found";
   if (r.found_on && r.found_on.length > 0) {
+    const src   = r.found_on[0];
     const extra = r.found_on.length - 1;
     tdFound.innerHTML =
-      `<ul class="found-links"><li><a href="${esc(r.found_on[0])}" target="_blank" rel="noopener">${esc(r.found_on[0])}</a></li></ul>` +
-      (extra > 0 ? `<div class="found-more">…及另外 ${extra} 個頁面</div>` : "");
+      `<a href="${esc(src)}" target="_blank" rel="noopener">url</a> ` +
+      `<a href="view-source:${esc(src)}" target="_blank">src</a>` +
+      (extra > 0 ? `<div class="found-more">+${extra} 個頁面</div>` : "");
   } else {
     tdFound.innerHTML = `<span style="color:var(--gray-400);font-size:.8rem">起始頁</span>`;
   }
 
-  tr.append(tdNo, tdSt, tdUrl, tdFound);
+  // Server response
+  const tdSt = document.createElement("td");
+  tdSt.innerHTML = `<span class="badge ${badgeCls(r)}">${esc(r.status_label)}</span>`;
+
+  tr.append(tdNo, tdUrl, tdText, tdFound, tdSt);
   resBody.appendChild(tr);
 }
 
@@ -273,15 +282,16 @@ exportPdfBtn.addEventListener("click", () => {
   // ── Table
   const rows = filtered.map((r, i) => [
     i + 1,
-    r.status_label,
-    r.url.length > 80 ? r.url.slice(0, 77) + "..." : r.url,
+    r.url.length > 90 ? r.url.slice(0, 87) + "..." : r.url,
+    (r.link_text || "").length > 40 ? (r.link_text || "").slice(0, 37) + "..." : (r.link_text || ""),
     r.found_on.length > 0
       ? (r.found_on[0].length > 70 ? r.found_on[0].slice(0, 67) + "..." : r.found_on[0])
       : "(start URL)",
+    r.status_label,
   ]);
 
   doc.autoTable({
-    head: [["#", "Status", "URL", "Found On (First Source)"]],
+    head: [["#", "Broken Link", "Link Text", "Page Found", "Status"]],
     body: rows,
     startY: 48,
     theme: "grid",
@@ -294,9 +304,10 @@ exportPdfBtn.addEventListener("click", () => {
     },
     columnStyles: {
       0: { cellWidth: 10, halign: "center" },
-      1: { cellWidth: 25, halign: "center" },
-      2: { cellWidth: 130 },
-      3: { cellWidth: 112 },
+      1: { cellWidth: 110 },
+      2: { cellWidth: 45 },
+      3: { cellWidth: 100 },
+      4: { cellWidth: 12, halign: "center" },
     },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     didParseCell: (data) => {
@@ -343,9 +354,10 @@ exportHtmlBtn.addEventListener("click", () => {
       : "<em>起始頁</em>";
     return `<tr class="${rowCls}">
       <td class="tc">${i + 1}</td>
-      <td><span class="bdg" style="background:${bdgBg};color:${bdgClr};border-color:${bdgBdr}">${esc(r.status_label)}</span></td>
       <td><a href="${esc(r.url)}" target="_blank">${esc(r.url)}</a></td>
+      <td>${esc(r.link_text || "")}</td>
       <td>${foundHtml}</td>
+      <td><span class="bdg" style="background:${bdgBg};color:${bdgClr};border-color:${bdgBdr}">${esc(r.status_label)}</span></td>
     </tr>`;
   }).join("\n");
 
@@ -425,9 +437,10 @@ tr.ok:hover td{background:#f8fafc}
       <thead>
         <tr>
           <th class="tc">#</th>
-          <th>狀態碼</th>
-          <th>連結網址</th>
-          <th>發現於（來源頁面）</th>
+          <th>失效連結</th>
+          <th>連結文字</th>
+          <th>發現於</th>
+          <th>伺服器回應</th>
         </tr>
       </thead>
       <tbody>

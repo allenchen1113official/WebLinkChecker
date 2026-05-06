@@ -31,6 +31,7 @@ class LinkResult:
     status_code: Optional[int]
     error: Optional[str]
     found_on: list[str] = field(default_factory=list)
+    link_text: str = ""
 
     @property
     def is_broken(self) -> bool:
@@ -66,7 +67,7 @@ def normalize_url(url: str) -> str:
     return parsed._replace(fragment="").geturl()
 
 
-def extract_links(html: str, page_url: str) -> list[str]:
+def _extract_links_with_text(html: str, page_url: str) -> list[tuple[str, str]]:
     soup = BeautifulSoup(html, "lxml")
     links = []
     for tag in soup.find_all("a", href=True):
@@ -74,8 +75,12 @@ def extract_links(html: str, page_url: str) -> list[str]:
         if not href or href.startswith(("mailto:", "tel:", "javascript:", "#")):
             continue
         absolute = normalize_url(urljoin(page_url, href))
-        links.append(absolute)
+        links.append((absolute, tag.get_text(strip=True)))
     return links
+
+
+def extract_links(html: str, page_url: str) -> list[str]:
+    return [url for url, _ in _extract_links_with_text(html, page_url)]
 
 
 def _parse_sitemap_urls(
@@ -233,9 +238,11 @@ def crawl(
 
         if status < 400 and "text/html" in content_type:
             pages_crawled += 1
-            links = extract_links(resp.text, page_url)
-            for link in links:
+            links = _extract_links_with_text(resp.text, page_url)
+            for link, text in links:
                 lr = _ensure(link)
+                if not lr.link_text and text:
+                    lr.link_text = text
                 if page_url not in lr.found_on:
                     lr.found_on.append(page_url)
                 if is_same_domain(link, base) and link not in crawled and link not in queued:
@@ -305,10 +312,11 @@ def print_report(results: dict[str, LinkResult], show_ok: bool) -> None:
 def export_csv(results: dict[str, LinkResult], path: str) -> None:
     with open(path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow(["URL", "Status", "Error", "Broken", "Found On"])
+        writer.writerow(["URL", "Link Text", "Status", "Error", "Broken", "Found On"])
         for r in results.values():
             writer.writerow([
                 r.url,
+                r.link_text,
                 r.status_code or "",
                 r.error or "",
                 r.is_broken,
@@ -325,6 +333,7 @@ def export_json(results: dict[str, LinkResult], path: str) -> None:
         "links": [
             {
                 "url": r.url,
+                "link_text": r.link_text,
                 "status_code": r.status_code,
                 "error": r.error,
                 "is_broken": r.is_broken,

@@ -142,9 +142,11 @@ details[open] .opts-toggle svg{transform:rotate(180deg)}
 .res-table tr:last-child td{border-bottom:none}
 .res-table tr.row-broken{background:#fffaf9}
 .col-no{width:44px}
+.col-url{min-width:200px}
+.col-text{min-width:100px}
+.col-found{min-width:90px;white-space:nowrap}
 .col-status{width:90px}
-.col-url{min-width:220px}
-.col-found{min-width:180px}
+.found-more{font-size:.72rem;color:var(--muted);margin-top:2px}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:700;letter-spacing:.3px}
 .b2xx{background:#dcfce7;color:#166534}
 .b3xx{background:#fef9c3;color:#854d0e}
@@ -379,9 +381,10 @@ details[open] .opts-toggle svg{transform:rotate(180deg)}
         <thead>
           <tr>
             <th class="col-no">#</th>
-            <th class="col-status">狀態碼</th>
-            <th class="col-url">連結網址</th>
-            <th class="col-found">發現於（來源頁面）</th>
+            <th class="col-url">失效連結</th>
+            <th class="col-text">連結文字</th>
+            <th class="col-found">發現於</th>
+            <th class="col-status">伺服器回應</th>
           </tr>
         </thead>
         <tbody id="res-body"></tbody>
@@ -491,7 +494,7 @@ class CheckerCore {
 
   _ensure(url) {
     if (!this.results.has(url))
-      this.results.set(url, { url, statusCode: null, error: null, foundOn: [], checked: false });
+      this.results.set(url, { url, statusCode: null, error: null, foundOn: [], linkText: "", checked: false });
     return this.results.get(url);
   }
 
@@ -499,7 +502,7 @@ class CheckerCore {
     const broken = r.error !== null || (r.statusCode !== null && r.statusCode >= 400);
     const label  = r.error ? "ERROR" : (r.statusCode !== null ? String(r.statusCode) : "—");
     return { url: r.url, statusCode: r.statusCode, statusLabel: label,
-             error: r.error, isBroken: broken, foundOn: [...r.foundOn] };
+             error: r.error, isBroken: broken, foundOn: [...r.foundOn], linkText: r.linkText || "" };
   }
 
   /* Fetch via proxy with automatic fallback to next proxy on network failure */
@@ -589,8 +592,9 @@ class CheckerCore {
         this.pagesCrawled++;
         const html  = await resp.text();
         const links = this._extractLinks(html, pageUrl);
-        for (const link of links) {
+        for (const { url: link, text } of links) {
           const lr = this._ensure(link);
+          if (!lr.linkText && text) lr.linkText = text;
           if (!lr.foundOn.includes(pageUrl)) lr.foundOn.push(pageUrl);
           if (this._sameDomain(link) && !this.visited.has(link))
             this.queue.add(link);
@@ -608,8 +612,9 @@ class CheckerCore {
       const href = (a.getAttribute("href") || "").trim();
       if (!href || /^(mailto:|tel:|javascript:|#)/i.test(href)) continue;
       try {
-        const abs = this._norm(new URL(href, base).href);
-        if (!seen.has(abs)) { seen.add(abs); out.push(abs); }
+        const abs  = this._norm(new URL(href, base).href);
+        const text = a.textContent.trim();
+        if (!seen.has(abs)) { seen.add(abs); out.push({ url: abs, text }); }
       } catch { /* skip malformed */ }
     }
     return out;
@@ -852,16 +857,17 @@ function appendRow(r, idx) {
   const label = r.statusCode === 0 ? "OK*" : r.statusLabel;
 
   const foundHtml = r.foundOn.length
-    ? `<ul class="found-list">${r.foundOn.map(p =>
-        `<li><a href="${esc(p)}" target="_blank" rel="noopener">${esc(trunc(p, 60))}</a></li>`
-      ).join("")}</ul>`
+    ? r.foundOn.slice(0, 1).map(p =>
+        `<a href="${esc(p)}" target="_blank" rel="noopener">url</a> <a href="view-source:${esc(p)}" target="_blank">src</a>`
+      ).join("") + (r.foundOn.length > 1 ? `<div class="found-more">+${r.foundOn.length - 1} 個頁面</div>` : "")
     : `<span class="no-data">（起始 URL）</span>`;
 
   tr.innerHTML = `
     <td class="col-no" style="color:var(--muted);font-size:.78rem">${idx}</td>
-    <td class="col-status"><span class="badge ${cls}">${esc(label)}</span></td>
     <td class="col-url"><a class="url-link" href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a></td>
-    <td class="col-found">${foundHtml}</td>`;
+    <td class="col-text">${esc(r.linkText || "")}</td>
+    <td class="col-found">${foundHtml}</td>
+    <td class="col-status"><span class="badge ${cls}">${esc(label)}</span></td>`;
   resBody.appendChild(tr);
 }
 
@@ -916,11 +922,11 @@ function exportPdf() {
   doc.text(`Total: ${allResults.length}  Broken: ${allResults.filter(r=>r.isBroken).length}  OK: ${allResults.filter(r=>!r.isBroken).length}`, 14, 33);
   doc.autoTable({
     startY: 38,
-    head: [["#","Status","URL","Found On"]],
-    body: rows.map((r, i) => [i+1, r.statusCode===0?"OK*":r.statusLabel, r.url, r.foundOn.join("\n")||"(start URL)"]),
+    head: [["#","Broken Link","Link Text","Page Found","Status"]],
+    body: rows.map((r, i) => [i+1, r.url, r.linkText||"", r.foundOn.join("\n")||"(start URL)", r.statusCode===0?"OK*":r.statusLabel]),
     styles:       { fontSize: 7, cellPadding: 2 },
     headStyles:   { fillColor: [21,88,214], textColor: 255, fontStyle: "bold" },
-    columnStyles: { 0:{cellWidth:10}, 1:{cellWidth:18}, 2:{cellWidth:130}, 3:{cellWidth:100} },
+    columnStyles: { 0:{cellWidth:10}, 1:{cellWidth:90}, 2:{cellWidth:40}, 3:{cellWidth:80}, 4:{cellWidth:18} },
     didParseCell(d) {
       if (d.section === "body" && rows[d.row.index]?.isBroken) {
         d.cell.styles.fillColor = [255,236,235];
@@ -936,9 +942,11 @@ function exportHtml() {
   const rows = getFiltered();
   if (!rows.length) { alert("目前沒有資料可匯出。"); return; }
   const rowsHtml = rows.map((r,i) => `<tr class="${r.isBroken?"broken":"ok"}">
-    <td>${i+1}</td><td>${esc(r.statusCode===0?"OK*":r.statusLabel)}</td>
+    <td>${i+1}</td>
     <td><a href="${esc(r.url)}">${esc(r.url)}</a></td>
+    <td>${esc(r.linkText||"")}</td>
     <td>${r.foundOn.length?r.foundOn.map(p=>`<a href="${esc(p)}">${esc(p)}</a>`).join("<br>"):"(start URL)"}</td>
+    <td>${esc(r.statusCode===0?"OK*":r.statusLabel)}</td>
   </tr>`).join("");
   const html = `<!DOCTYPE html>
 <html lang="zh-TW"><head><meta charset="UTF-8"/>
@@ -948,14 +956,14 @@ h1{margin-bottom:4px}p{color:#64748b;font-size:.88rem;margin-bottom:18px}
 table{border-collapse:collapse;width:100%;font-size:.84rem}
 th{background:#1558d6;color:#fff;padding:8px 12px;text-align:left}
 td{padding:8px 12px;border-bottom:1px solid #e2e8f0;vertical-align:top}
-tr.broken{background:#fff5f5}tr.broken td:nth-child(2){color:#c0392b;font-weight:700}
-tr.ok td:nth-child(2){color:#1a7a40;font-weight:700}a{color:#1558d6}</style>
+tr.broken{background:#fff5f5}tr.broken td:last-child{color:#c0392b;font-weight:700}
+tr.ok td:last-child{color:#1a7a40;font-weight:700}a{color:#1558d6}</style>
 </head><body>
 <h1>WebLinkChecker Report</h1>
 <p>URL: <a href="${esc(checkedUrl)}">${esc(checkedUrl)}</a> &mdash; ${new Date().toLocaleString()}<br>
 Total: ${allResults.length} &nbsp; Broken: ${allResults.filter(r=>r.isBroken).length} &nbsp; OK: ${allResults.filter(r=>!r.isBroken).length}
 <br><small>* OK* = no-cors mode, server responded but status code unavailable</small></p>
-<table><thead><tr><th>#</th><th>Status</th><th>URL</th><th>Found On</th></tr></thead>
+<table><thead><tr><th>#</th><th>Broken Link</th><th>Link Text</th><th>Page Found</th><th>Status</th></tr></thead>
 <tbody>${rowsHtml}</tbody></table></body></html>`;
   const a = Object.assign(document.createElement("a"), {
     href: URL.createObjectURL(new Blob([html], {type:"text/html"})),

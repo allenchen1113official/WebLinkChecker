@@ -57,6 +57,7 @@ def start_check():
                     "is_broken": result.is_broken,
                     "status_label": result.status_label,
                     "found_on": result.found_on,
+                    "link_text": result.link_text,
                 })
 
             results = crawl(
