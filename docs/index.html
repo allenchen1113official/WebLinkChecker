@@ -618,12 +618,12 @@ class CheckerCore {
     const doc  = new DOMParser().parseFromString(html, "text/html");
     const seen = new Set();
     const out  = [];
-    for (const a of doc.querySelectorAll("a[href]")) {
+    for (const a of doc.querySelectorAll("a[href], area[href]")) {
       const href = (a.getAttribute("href") || "").trim();
       if (!href || /^(mailto:|tel:|javascript:|#)/i.test(href)) continue;
       try {
         const abs  = this._norm(new URL(href, base).href);
-        const text = a.textContent.trim();
+        const text = a.tagName === "A" ? a.textContent.trim() : (a.getAttribute("alt") || "");
         if (!seen.has(abs)) { seen.add(abs); out.push({ url: abs, text }); }
       } catch { /* skip malformed */ }
     }
