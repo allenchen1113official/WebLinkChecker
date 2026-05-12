@@ -16,7 +16,7 @@ from link_checker import (
 )
 
 
-# ── LinkResult ────────────────────────────────────────────────────────────────────
+# ── LinkResult ────────────────────────────────────────────────────────────────
 
 class TestLinkResult:
     def test_is_broken_on_error(self):
@@ -45,10 +45,10 @@ class TestLinkResult:
 
     def test_status_label_with_code(self):
         r = LinkResult(url="http://x.com", status_code=404, error=None)
-        assert r.status_label == "404"
+        assert r.status_label == "404 Not Found"
 
 
-# ── URL helpers ──────────────────────────────────────────────────────────────────
+# ── URL helpers ────────────────────────────────────────────────────────────────
 
 class TestUrlHelpers:
     def test_get_base_domain(self):
@@ -68,7 +68,7 @@ class TestUrlHelpers:
         assert normalize_url(url) == url
 
 
-# ── extract_links ───────────────────────────────────────────────────────────────────
+# ── extract_links ──────────────────────────────────────────────────────────────
 
 class TestExtractLinks:
     def test_extracts_absolute_links(self):
@@ -103,7 +103,7 @@ class TestExtractLinks:
         assert not any("#" in l for l in links)
 
 
-# ── check_url ────────────────────────────────────────────────────────────────────
+# ── check_url ──────────────────────────────────────────────────────────────────
 
 class TestCheckUrl:
     def _mock_session(self, status_code=200):
@@ -152,7 +152,7 @@ class TestCheckUrl:
         assert "Timeout" in err
 
 
-# ── crawl ────────────────────────────────────────────────────────────────────
+# ── crawl ──────────────────────────────────────────────────────────────────────
 
 class TestCrawl:
     def _make_response(self, status=200, content_type="text/html", body=""):
@@ -266,7 +266,7 @@ class TestCrawl:
         assert dead.is_broken is True
 
 
-# ── build_session ──────────────────────────────────────────────────────────────────
+# ── build_session ──────────────────────────────────────────────────────────────
 
 class TestBuildSession:
     def test_returns_session_with_user_agent(self):
