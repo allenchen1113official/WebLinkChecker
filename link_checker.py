@@ -13,6 +13,7 @@ import threading
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import datetime
+from http.client import responses as HTTP_RESPONSES
 from typing import Callable, Optional
 from urllib.parse import urljoin, urlparse
 
@@ -42,8 +43,12 @@ class LinkResult:
     @property
     def status_label(self) -> str:
         if self.error:
-            return f"ERROR: {self.error}"
-        return str(self.status_code)
+            err = self.error if len(self.error) <= 60 else self.error[:57] + "…"
+            return f"ERROR: {err}"
+        if self.status_code is not None:
+            desc = HTTP_RESPONSES.get(self.status_code, "")
+            return f"{self.status_code} {desc}".strip()
+        return "—"
 
 
 def build_session(timeout: int, user_agent: str) -> requests.Session:
@@ -85,7 +90,14 @@ def _extract_links_with_text(html: str, page_url: str) -> list[tuple[str, str]]:
         if not href or href.startswith(("mailto:", "tel:", "javascript:", "#")):
             continue
         absolute = normalize_url(urljoin(page_url, href))
-        text = tag.get_text(strip=True) if tag.name == "a" else tag.get("alt", "")
+        if tag.name == "a":
+            text = tag.get_text(strip=True)
+            if not text:
+                img = tag.find("img")
+                if img:
+                    text = (img.get("alt") or img.get("title") or "").strip()
+        else:
+            text = (tag.get("alt") or "").strip()
         links.append((absolute, text))
     return links
 
@@ -124,7 +136,6 @@ def _parse_sitemap_urls(
                     u = normalize_url(loc.text.strip())
                     if u.startswith(base_origin):
                         urls.append(u)
-                        # caller will filter by start_url path
     except Exception:
         pass
     return urls
@@ -185,7 +196,7 @@ def crawl(
 ) -> dict[str, LinkResult]:
     base = get_base_domain(start_url)
     pages_to_crawl: list[str] = [normalize_url(start_url)]
-    queued: set[str] = {normalize_url(start_url)}   # O(1) membership check
+    queued: set[str] = {normalize_url(start_url)}
     crawled: set[str] = set()
     results: dict[str, LinkResult] = {}
     pages_crawled = 0
@@ -205,7 +216,6 @@ def crawl(
     if verbose:
         print(f"\n{Fore.CYAN}Base domain: {base}{Style.RESET_ALL}\n")
 
-    # Seed queue from sitemap.xml so orphan pages are also discovered
     _status("Loading sitemap...")
     for u in _load_sitemap(session, start_url, timeout):
         if not is_under_start_path(u, start_url):
@@ -217,7 +227,6 @@ def crawl(
     if verbose and len(queued) > 1:
         print(f"{Fore.CYAN}Sitemap: {len(queued) - 1} additional pages queued{Style.RESET_ALL}")
 
-    # Phase 1: crawl same-domain pages with GET
     while pages_to_crawl:
         if stop_event and stop_event.is_set():
             break
@@ -266,7 +275,6 @@ def crawl(
         if delay:
             time.sleep(delay)
 
-    # Phase 2: check all unchecked links (external + unreached internal)
     unchecked = [r for r in results.values() if r.status_code is None and r.error is None]
     if unchecked:
         _status(f"Checking {len(unchecked)} remaining links...")

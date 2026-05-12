@@ -57,7 +57,7 @@ a:hover { text-decoration: underline; }
   padding: 0 20px;
 }
 
-/* ─── HEADER ──────────────────────────────── */
+/* ─── HEADER ─────────────────────────────────────── */
 .site-header {
   background: var(--white);
   border-bottom: 2px solid var(--blue);
@@ -95,7 +95,7 @@ a:hover { text-decoration: underline; }
 }
 .hdr-nav a:hover { color: var(--blue); text-decoration: none; }
 
-/* ─── HERO / FORM ─────────────────────────── */
+/* ─── HERO / FORM ─────────────────────────────── */
 .hero-band {
   background: linear-gradient(160deg, #0d3da8 0%, #1a6cdf 100%);
   padding: 48px 0 52px;
@@ -240,7 +240,7 @@ details[open] .opts-toggle svg { transform: rotate(180deg); }
 .opt-field input[type="number"]:focus { border-color: var(--blue); }
 .opt-unit { font-size: .8rem; color: var(--gray-400); }
 
-/* ─── SPINNER ─────────────────────────────── */
+/* ─── SPINNER ──────────────────────────────────────── */
 .spinner {
   width: 18px; height: 18px;
   border: 2.5px solid rgba(255,255,255,.4);
@@ -250,7 +250,7 @@ details[open] .opts-toggle svg { transform: rotate(180deg); }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ─── PROGRESS ────────────────────────────── */
+/* ─── PROGRESS ────────────────────────────────────── */
 #progress-wrap { padding-top: 24px; }
 .progress-card {
   background: var(--white);
@@ -318,7 +318,7 @@ details[open] .opts-toggle svg { transform: rotate(180deg); }
   margin: 0 4px;
 }
 
-/* ─── RESULTS ─────────────────────────────── */
+/* ─── RESULTS ─────────────────────────────────────── */
 #results-wrap { padding-top: 24px; padding-bottom: 40px; }
 
 /* Summary bar */
@@ -473,7 +473,7 @@ details[open] .opts-toggle svg { transform: rotate(180deg); }
 .col-url    { min-width: 220px; word-break: break-all; }
 .col-text   { min-width: 100px; }
 .col-found  { min-width: 90px; white-space: nowrap; }
-.col-status { width: 100px; }
+.col-status { min-width: 140px; }
 
 /* Status badges */
 .badge {
@@ -513,7 +513,7 @@ details[open] .opts-toggle svg { transform: rotate(180deg); }
   font-size: .9rem;
 }
 
-/* ─── SITE FOOTER ─────────────────────────── */
+/* ─── SITE FOOTER ─────────────────────────────────── */
 .site-footer {
   margin-top: auto;
   background: var(--white);
@@ -524,7 +524,7 @@ details[open] .opts-toggle svg { transform: rotate(180deg); }
   color: var(--gray-400);
 }
 
-/* ─── RESPONSIVE ──────────────────────────── */
+/* ─── RESPONSIVE ──────────────────────────────────── */
 @media (max-width: 640px) {
   .hero-h1 { font-size: 1.4rem; }
   .input-group { flex-direction: column; }
@@ -537,7 +537,7 @@ details[open] .opts-toggle svg { transform: rotate(180deg); }
   .results-toolbar { flex-direction: column; align-items: flex-start; }
 }
 
-/* ─── PRINT STYLES (fallback) ─────────────── */
+/* ─── PRINT STYLES (fallback) ─────────────────────────── */
 @media print {
   .site-header, .hero-band, #progress-wrap,
   .results-toolbar, .site-footer { display: none !important; }
