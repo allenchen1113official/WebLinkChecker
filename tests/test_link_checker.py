@@ -45,7 +45,7 @@ class TestLinkResult:
 
     def test_status_label_with_code(self):
         r = LinkResult(url="http://x.com", status_code=404, error=None)
-        assert r.status_label == "404"
+        assert r.status_label == "404 Not Found"
 
 
 # ── URL helpers ────────────────────────────────────────────────────────────────

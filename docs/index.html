@@ -145,7 +145,7 @@ details[open] .opts-toggle svg{transform:rotate(180deg)}
 .col-url{min-width:200px}
 .col-text{min-width:100px}
 .col-found{min-width:90px;white-space:nowrap}
-.col-status{width:90px}
+.col-status{min-width:140px}
 .found-more{font-size:.72rem;color:var(--muted);margin-top:2px}
 .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:700;letter-spacing:.3px}
 .b2xx{background:#dcfce7;color:#166534}
@@ -406,6 +406,18 @@ details[open] .opts-toggle svg{transform:rotate(180deg)}
 </footer>
 
 <script>
+/* HTTP status code descriptions */
+const HTTP_STATUS = {
+  200:"OK", 201:"Created", 204:"No Content", 206:"Partial Content",
+  301:"Moved Permanently", 302:"Found", 303:"See Other", 304:"Not Modified",
+  307:"Temporary Redirect", 308:"Permanent Redirect",
+  400:"Bad Request", 401:"Unauthorized", 403:"Forbidden",
+  404:"Not Found", 405:"Method Not Allowed", 408:"Request Timeout",
+  409:"Conflict", 410:"Gone", 429:"Too Many Requests",
+  500:"Internal Server Error", 502:"Bad Gateway",
+  503:"Service Unavailable", 504:"Gateway Timeout",
+};
+
 /* ══════════════════════════════════════════════
    Proxy strategy
    Priority: custom → corsproxy.io → allorigins.win → no-cors fallback
@@ -510,7 +522,16 @@ class CheckerCore {
 
   _pub(r) {
     const broken = r.error !== null || (r.statusCode !== null && r.statusCode >= 400);
-    const label  = r.error ? "ERROR" : (r.statusCode !== null ? String(r.statusCode) : "—");
+    let label;
+    if (r.error) {
+      const err = r.error.length > 60 ? r.error.slice(0, 57) + "…" : r.error;
+      label = "ERROR: " + err;
+    } else if (r.statusCode !== null) {
+      const desc = HTTP_STATUS[r.statusCode] || "";
+      label = desc ? `${r.statusCode} ${desc}` : String(r.statusCode);
+    } else {
+      label = "—";
+    }
     return { url: r.url, statusCode: r.statusCode, statusLabel: label,
              error: r.error, isBroken: broken, foundOn: [...r.foundOn], linkText: r.linkText || "" };
   }
@@ -622,9 +643,18 @@ class CheckerCore {
       const href = (a.getAttribute("href") || "").trim();
       if (!href || /^(mailto:|tel:|javascript:|#)/i.test(href)) continue;
       try {
-        const abs  = this._norm(new URL(href, base).href);
-        const text = a.tagName === "A" ? a.textContent.trim() : (a.getAttribute("alt") || "");
-        if (!seen.has(abs)) { seen.add(abs); out.push({ url: abs, text }); }
+        const abs = this._norm(new URL(href, base).href);
+        let text;
+        if (a.tagName === "A") {
+          text = a.textContent.trim();
+          if (!text) {
+            const img = a.querySelector("img");
+            if (img) text = (img.getAttribute("alt") || img.getAttribute("title") || "").trim();
+          }
+        } else {
+          text = (a.getAttribute("alt") || "").trim();
+        }
+        if (!seen.has(abs)) { seen.add(abs); out.push({ url: abs, text: text || "" }); }
       } catch { /* skip malformed */ }
     }
     return out;

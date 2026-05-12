@@ -473,7 +473,7 @@ details[open] .opts-toggle svg { transform: rotate(180deg); }
 .col-url    { min-width: 220px; word-break: break-all; }
 .col-text   { min-width: 100px; }
 .col-found  { min-width: 90px; white-space: nowrap; }
-.col-status { width: 100px; }
+.col-status { min-width: 140px; }
 
 /* Status badges */
 .badge {
