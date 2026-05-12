@@ -80,12 +80,13 @@ def normalize_url(url: str) -> str:
 def _extract_links_with_text(html: str, page_url: str) -> list[tuple[str, str]]:
     soup = BeautifulSoup(html, "lxml")
     links = []
-    for tag in soup.find_all("a", href=True):
+    for tag in soup.find_all(["a", "area"], href=True):
         href = tag["href"].strip()
         if not href or href.startswith(("mailto:", "tel:", "javascript:", "#")):
             continue
         absolute = normalize_url(urljoin(page_url, href))
-        links.append((absolute, tag.get_text(strip=True)))
+        text = tag.get_text(strip=True) if tag.name == "a" else tag.get("alt", "")
+        links.append((absolute, text))
     return links
 
 
@@ -123,6 +124,7 @@ def _parse_sitemap_urls(
                     u = normalize_url(loc.text.strip())
                     if u.startswith(base_origin):
                         urls.append(u)
+                        # caller will filter by start_url path
     except Exception:
         pass
     return urls
