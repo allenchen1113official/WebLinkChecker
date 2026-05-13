@@ -418,10 +418,10 @@ const HTTP_STATUS = {
   503:"Service Unavailable", 504:"Gateway Timeout",
 };
 
-/* ════════════════════════════════════════════
+/* ══════════════════════════════════════════════
    Proxy strategy
    Priority: custom → corsproxy.io → allorigins.win → no-cors fallback
-   ════════════════════════════════════════════ */
+   ══════════════════════════════════════════════ */
 
 const BUILTIN_PROXIES = [
   { name: "corsproxy.io",   make: u => `https://corsproxy.io/?url=${encodeURIComponent(u)}` },
@@ -440,10 +440,11 @@ async function probeProxy(makeUrl) {
 class ProxyManager {
   constructor(customPrefix) {
     this._custom = customPrefix ? customPrefix.trim() : "";
-    this._index  = 0;
-    this._active = null;
+    this._index  = 0;   // current builtin index
+    this._active = null; // {name, make}
   }
 
+  /* Return the active proxy's make function, auto-advancing on failure */
   get current() {
     if (this._active) return this._active;
     if (this._custom) {
@@ -456,8 +457,9 @@ class ProxyManager {
 
   get name() { return this.current?.name || "no-cors"; }
 
+  /* Called when current proxy fails — try the next builtin */
   async advance() {
-    if (this._custom) return false;
+    if (this._custom) return false; // custom proxy: no fallback
     this._index++;
     this._active = BUILTIN_PROXIES[this._index] || null;
     return this._active !== null;
@@ -468,15 +470,16 @@ class ProxyManager {
   }
 }
 
-/* ════════════════════════════════════════════
+/* ══════════════════════════════════════════════
    CheckerCore
-   ════════════════════════════════════════════ */
+   ══════════════════════════════════════════════ */
 class CheckerCore {
   constructor(startUrl, opts = {}) {
     this.startUrl   = this._norm(startUrl);
     this.baseOrigin = new URL(this.startUrl).origin;
     const sp = new URL(this.startUrl).pathname;
     this._basePath  = sp.endsWith("/") ? sp : sp.replace(/[^/]*$/, "");
+    this._baseHost  = new URL(this.startUrl).hostname;
     this.timeout    = (opts.timeout  || 15) * 1000;
     this.delay      = (opts.delay    || 0)  * 1000;
     this.maxPages   = opts.maxPages  || 0;
@@ -500,14 +503,14 @@ class CheckerCore {
   }
 
   _sameDomain(url) {
-    try { return new URL(url).origin === this.baseOrigin; }
+    try { return new URL(url).hostname === this._baseHost; }
     catch { return false; }
   }
 
   _isCrawlable(url) {
     try {
       const u = new URL(url);
-      if (u.origin !== this.baseOrigin) return false;
+      if (u.hostname !== this._baseHost) return false;
       return u.pathname.startsWith(this._basePath);
     } catch { return false; }
   }
@@ -534,6 +537,7 @@ class CheckerCore {
              error: r.error, isBroken: broken, foundOn: [...r.foundOn], linkText: r.linkText || "" };
   }
 
+  /* Fetch via proxy with automatic fallback to next proxy on network failure */
   async _proxyFetch(targetUrl, method = "GET") {
     const ctrl = new AbortController();
     const tid  = setTimeout(() => ctrl.abort(), this.timeout);
@@ -542,21 +546,25 @@ class CheckerCore {
         const proxyUrl = this.proxy.makeUrl(targetUrl);
         try {
           const resp = await fetch(proxyUrl, { method, signal: ctrl.signal });
+          /* allorigins returns 200 even for errors; treat 5xx proxy errors as proxy failure */
           if (resp.status === 502 || resp.status === 503 || resp.status === 504) {
             throw new Error(`Proxy ${this.proxy.name} returned ${resp.status}`);
           }
           return { resp, viaProxy: true };
         } catch (e) {
-          if (e.name === "AbortError") throw e;
+          if (e.name === "AbortError") throw e; // timeout — stop trying
+          /* Network error on this proxy → try next */
           const hasNext = await this.proxy.advance();
           if (hasNext) {
             this.onProxyChange(this.proxy.name);
             this.onStatus(`切換至備援 Proxy: ${this.proxy.name}`);
           } else {
+            /* No more proxies — fall through to no-cors */
             break;
           }
         }
       }
+      /* Last resort: no-cors (opaque response — can't read status/body) */
       const resp = await fetch(targetUrl, { method: "HEAD", mode: "no-cors", signal: ctrl.signal });
       return { resp, viaProxy: false, opaque: true };
     } finally {
@@ -564,10 +572,12 @@ class CheckerCore {
     }
   }
 
+  /* Check a single link (external or unreached internal) */
   async _checkLink(url) {
     try {
       let { resp, opaque } = await this._proxyFetch(url, "HEAD");
       if (opaque) {
+        /* no-cors opaque: server responded → treat as OK (can't distinguish 2xx/4xx) */
         return { statusCode: 0, error: null, note: "no-cors" };
       }
       if (resp.status === 405 || resp.status === 501) {
@@ -581,6 +591,7 @@ class CheckerCore {
     }
   }
 
+  /* Crawl a same-domain page via proxy (need HTML body) */
   async _crawlPage(pageUrl) {
     this.onStatus("爬取頁面: " + pageUrl);
     let resp, opaque;
@@ -597,6 +608,7 @@ class CheckerCore {
     const r = this._ensure(pageUrl);
 
     if (opaque) {
+      /* no-cors: can't read HTML — record as reachable but can't extract links */
       r.statusCode = 0;
       r.checked    = true;
       this.onResult(this._pub(r));
@@ -608,10 +620,14 @@ class CheckerCore {
 
     if (resp.status < 400) {
       const ct = resp.headers.get("content-type") || "";
-      if (ct.includes("text/html")) {
+      const body = await resp.text();
+      // Accept HTML when Content-Type says so, or when proxy omits it and body looks like HTML
+      const isHtml = ct.includes("text/html") || ct.includes("application/xhtml") ||
+                     (!ct.match(/image|audio|video|font|\/css|\/javascript|\/json/) &&
+                      /^\s*<(!DOCTYPE\s|html[\s>])/i.test(body));
+      if (isHtml) {
         this.pagesCrawled++;
-        const html  = await resp.text();
-        const links = this._extractLinks(html, pageUrl);
+        const links = this._extractLinks(body, pageUrl);
         for (const { url: link, text } of links) {
           const lr = this._ensure(link);
           if (!lr.linkText && text) lr.linkText = text;
@@ -649,6 +665,7 @@ class CheckerCore {
     return out;
   }
 
+  /* Recursively parse a sitemap or sitemap-index and add same-domain URLs to queue */
   async _parseSitemap(sitemapUrl, depth = 0) {
     if (depth > 3 || this.stopped) return;
     try {
@@ -657,14 +674,17 @@ class CheckerCore {
       const xml = await resp.text();
       const doc = new DOMParser().parseFromString(xml, "application/xml");
 
+      /* Detect sitemap index vs regular urlset by root element name (strip namespace) */
       const rootLocal = doc.documentElement.localName;
       if (rootLocal === "sitemapindex") {
+        /* Sitemap index: each <sitemap><loc> points to a child sitemap file */
         const subLocs = doc.querySelectorAll("sitemapindex > sitemap > loc");
         for (const loc of subLocs) {
           if (this.stopped) break;
           await this._parseSitemap(loc.textContent.trim(), depth + 1);
         }
       } else {
+        /* Regular urlset: each <url><loc> is a page URL */
         let count = 0;
         for (const loc of doc.querySelectorAll("urlset > url > loc")) {
           const u = this._norm(loc.textContent.trim());
@@ -679,6 +699,7 @@ class CheckerCore {
     } catch { /* no sitemap, network error, or invalid XML */ }
   }
 
+  /* Discover sitemap URL (robots.txt Sitemap: directive → /sitemap.xml fallback) */
   async _loadSitemap() {
     let sitemapUrl = this.baseOrigin + "/sitemap.xml";
     try {
@@ -699,8 +720,10 @@ class CheckerCore {
     this.onProxyChange(this.proxy.name);
     this._ensure(this.startUrl);
 
+    /* Seed queue from sitemap.xml so orphan pages are also discovered */
     await this._loadSitemap();
 
+    /* Phase 1: crawl same-domain pages */
     while (this.queue.size > 0 && !this.stopped) {
       const page = this.queue.values().next().value;
       this.queue.delete(page);
@@ -711,6 +734,7 @@ class CheckerCore {
       if (this.delay > 0) await new Promise(r => setTimeout(r, this.delay));
     }
 
+    /* Phase 2: HEAD-check all unchecked (external) links */
     const unchecked = [...this.results.values()].filter(r => !r.checked);
     if (unchecked.length) this.onStatus(`檢查剩餘 ${unchecked.length} 個連結…`);
     for (const r of unchecked) {
@@ -729,9 +753,9 @@ class CheckerCore {
   }
 }
 
-/* ════════════════════════════════════════════
+/* ══════════════════════════════════════════════
    UI
-   ════════════════════════════════════════════ */
+   ══════════════════════════════════════════════ */
 const $  = id => document.getElementById(id);
 let allResults    = [];
 let currentFilter = "broken";
@@ -869,7 +893,7 @@ function appendRow(r, idx) {
   if (r.isBroken) tr.classList.add("row-broken");
 
   const cls = r.error ? "berr"
-    : r.statusCode === 0  ? "b2xx"
+    : r.statusCode === 0  ? "b2xx"   /* no-cors opaque — treated as reachable */
     : !r.statusCode       ? "berr"
     : r.statusCode < 300  ? "b2xx"
     : r.statusCode < 400  ? "b3xx"

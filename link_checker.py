@@ -136,6 +136,7 @@ def _parse_sitemap_urls(
                     u = normalize_url(loc.text.strip())
                     if u.startswith(base_origin):
                         urls.append(u)
+                        # caller will filter by start_url path
     except Exception:
         pass
     return urls
@@ -196,7 +197,7 @@ def crawl(
 ) -> dict[str, LinkResult]:
     base = get_base_domain(start_url)
     pages_to_crawl: list[str] = [normalize_url(start_url)]
-    queued: set[str] = {normalize_url(start_url)}
+    queued: set[str] = {normalize_url(start_url)}   # O(1) membership check
     crawled: set[str] = set()
     results: dict[str, LinkResult] = {}
     pages_crawled = 0
@@ -216,6 +217,7 @@ def crawl(
     if verbose:
         print(f"\n{Fore.CYAN}Base domain: {base}{Style.RESET_ALL}\n")
 
+    # Seed queue from sitemap.xml so orphan pages are also discovered
     _status("Loading sitemap...")
     for u in _load_sitemap(session, start_url, timeout):
         if not is_under_start_path(u, start_url):
@@ -227,6 +229,7 @@ def crawl(
     if verbose and len(queued) > 1:
         print(f"{Fore.CYAN}Sitemap: {len(queued) - 1} additional pages queued{Style.RESET_ALL}")
 
+    # Phase 1: crawl same-domain pages with GET
     while pages_to_crawl:
         if stop_event and stop_event.is_set():
             break
@@ -259,7 +262,7 @@ def crawl(
         if on_result:
             on_result(r)
 
-        if status < 400 and "text/html" in content_type:
+        if status < 400 and ("text/html" in content_type or "application/xhtml" in content_type):
             pages_crawled += 1
             links = _extract_links_with_text(resp.text, page_url)
             for link, text in links:
@@ -275,6 +278,7 @@ def crawl(
         if delay:
             time.sleep(delay)
 
+    # Phase 2: check all unchecked links (external + unreached internal)
     unchecked = [r for r in results.values() if r.status_code is None and r.error is None]
     if unchecked:
         _status(f"Checking {len(unchecked)} remaining links...")
