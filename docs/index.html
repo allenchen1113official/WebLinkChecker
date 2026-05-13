@@ -479,6 +479,7 @@ class CheckerCore {
     this.baseOrigin = new URL(this.startUrl).origin;
     const sp = new URL(this.startUrl).pathname;
     this._basePath  = sp.endsWith("/") ? sp : sp.replace(/[^/]*$/, "");
+    this._baseHost  = new URL(this.startUrl).hostname;
     this.timeout    = (opts.timeout  || 15) * 1000;
     this.delay      = (opts.delay    || 0)  * 1000;
     this.maxPages   = opts.maxPages  || 0;
@@ -502,14 +503,14 @@ class CheckerCore {
   }
 
   _sameDomain(url) {
-    try { return new URL(url).origin === this.baseOrigin; }
+    try { return new URL(url).hostname === this._baseHost; }
     catch { return false; }
   }
 
   _isCrawlable(url) {
     try {
       const u = new URL(url);
-      if (u.origin !== this.baseOrigin) return false;
+      if (u.hostname !== this._baseHost) return false;
       return u.pathname.startsWith(this._basePath);
     } catch { return false; }
   }
@@ -619,10 +620,14 @@ class CheckerCore {
 
     if (resp.status < 400) {
       const ct = resp.headers.get("content-type") || "";
-      if (ct.includes("text/html")) {
+      const body = await resp.text();
+      // Accept HTML when Content-Type says so, or when proxy omits it and body looks like HTML
+      const isHtml = ct.includes("text/html") || ct.includes("application/xhtml") ||
+                     (!ct.match(/image|audio|video|font|\/css|\/javascript|\/json/) &&
+                      /^\s*<(!DOCTYPE\s|html[\s>])/i.test(body));
+      if (isHtml) {
         this.pagesCrawled++;
-        const html  = await resp.text();
-        const links = this._extractLinks(html, pageUrl);
+        const links = this._extractLinks(body, pageUrl);
         for (const { url: link, text } of links) {
           const lr = this._ensure(link);
           if (!lr.linkText && text) lr.linkText = text;

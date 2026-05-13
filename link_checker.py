@@ -262,7 +262,7 @@ def crawl(
         if on_result:
             on_result(r)
 
-        if status < 400 and "text/html" in content_type:
+        if status < 400 and ("text/html" in content_type or "application/xhtml" in content_type):
             pages_crawled += 1
             links = _extract_links_with_text(resp.text, page_url)
             for link, text in links:
