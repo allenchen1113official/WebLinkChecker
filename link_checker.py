@@ -220,7 +220,7 @@ def crawl(
     # Seed queue from sitemap.xml so orphan pages are also discovered
     _status("Loading sitemap...")
     for u in _load_sitemap(session, start_url, timeout):
-        if not is_under_start_path(u, start_url):
+        if not is_same_domain(u, base):
             continue
         if u not in crawled and u not in queued:
             pages_to_crawl.append(u)
@@ -271,7 +271,7 @@ def crawl(
                     lr.link_text = text
                 if page_url not in lr.found_on:
                     lr.found_on.append(page_url)
-                if is_under_start_path(link, start_url) and link not in crawled and link not in queued:
+                if is_same_domain(link, base) and link not in crawled and link not in queued:
                     pages_to_crawl.append(link)
                     queued.add(link)
 

@@ -509,9 +509,7 @@ class CheckerCore {
 
   _isCrawlable(url) {
     try {
-      const u = new URL(url);
-      if (u.hostname !== this._baseHost) return false;
-      return u.pathname.startsWith(this._basePath);
+      return new URL(url).hostname === this._baseHost;
     } catch { return false; }
   }
 
